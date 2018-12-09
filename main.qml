@@ -9,18 +9,22 @@ ApplicationWindow {
   visible: true
   width: 640
   height: 480
-  title: qsTr("Thumper")
+  title: "Thumper 1.0.1"
 
   property string pathPrefix: pathPrefixField.text
-  property int cellSize: 200
-  property int actualSize: 500
+  property int cellSize: 240
+  property int actualSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
+  property var sizeModel:  [160, 240, 320, 480, 531, 640]
+
+  color: 'black'
 
   ImageProcessor {
     id: processor
   }
 
   header: ToolBar {
+    id: toolbar
     RowLayout {
       anchors.fill: parent
       Label {
@@ -33,18 +37,9 @@ ApplicationWindow {
         selectByMouse: true
       }
 
-      /*
-      ToolButton {
-        text: qsTr("🖫")
-        onClicked: { }
-        font.pixelSize: 24
-      }*/
-
-
-
       ComboBox {
-        model: [100, 200, 300, 400, 500, 600]
-        displayText: "Preview Size: %1".arg(currentText)
+        model: sizeModel
+        displayText: "Preview: %1px".arg(currentText)
         currentIndex: 1
         onActivated: {
           cellSize = currentText
@@ -52,8 +47,8 @@ ApplicationWindow {
       }
 
       ComboBox {
-        model: [100, 200, 300, 400, 500, 600]
-        displayText: "Thumb Size: %1".arg(currentText)
+        model: sizeModel
+        displayText: "Render: %1px".arg(currentText)
         currentIndex: 4
         onActivated: {
           actualSize = currentText
@@ -68,11 +63,7 @@ ApplicationWindow {
         }
       }
 
-      Label {
-        text: "Title"
-        elide: Label.ElideRight
-        horizontalAlignment: Qt.AlignHCenter
-        verticalAlignment: Qt.AlignVCenter
+      Item {
         Layout.fillWidth: true
       }
     }
@@ -168,6 +159,13 @@ ApplicationWindow {
     sequence: StandardKey.FullScreen
     onActivated: {
       root.visibility = (root.visibility == Window.FullScreen) ? Window.Windowed : Window.FullScreen
+    }
+  }
+
+  Shortcut {
+    sequence: "H"
+    onActivated: {
+      toolbar.visible = !toolbar.visible
     }
   }
 }
