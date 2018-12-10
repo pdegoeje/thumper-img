@@ -149,8 +149,12 @@ ApplicationWindow {
 
     onDropped: {
       if (drop.hasUrls && drop.proposedAction == Qt.CopyAction) {
-        list.model = [].concat(drop.urls)
         drop.acceptProposedAction()
+
+        list.model = [].concat(drop.urls)
+        list.model.forEach(function(x) {
+          processor.download(x)
+        });
       }
     }
   }
@@ -166,6 +170,13 @@ ApplicationWindow {
     sequence: "H"
     onActivated: {
       toolbar.visible = !toolbar.visible
+    }
+  }
+
+  Shortcut {
+    sequence: "T"
+    onActivated: {
+      list.model = [ "image://colors/yellow" ]
     }
   }
 }

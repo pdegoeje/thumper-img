@@ -1,4 +1,5 @@
 #include "imageprocessor.h"
+#include "thumperimageprovider.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -12,6 +13,8 @@ int main(int argc, char *argv[])
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
 
   QQmlApplicationEngine engine;
+  engine.addImageProvider(QLatin1String("colors"), new ThumperImageProvider());
+
   engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
   if (engine.rootObjects().isEmpty())
     return -1;

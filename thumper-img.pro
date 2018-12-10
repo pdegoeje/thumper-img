@@ -1,4 +1,4 @@
-QT += quick
+QT += quick network
 CONFIG += c++11
 
 # The following define makes your compiler emit warnings if you use
@@ -14,7 +14,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
         main.cpp \
-    imageprocessor.cpp
+    imageprocessor.cpp \
+    thumperimageprovider.cpp
 
 RESOURCES += qml.qrc
 
@@ -30,4 +31,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    imageprocessor.h
+    imageprocessor.h \
+    thumperimageprovider.h
