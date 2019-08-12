@@ -1,9 +1,13 @@
 #include "imageprocessor.h"
+#include "thumperimageprovider.h"
 
 #include <QFile>
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QNetworkReply>
+#include <QPixmap>
+#include <QImageReader>
+#include <QDir>
 
 ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 {
@@ -26,10 +30,10 @@ int ImageProcessor::nextId(const QString &prefix) {
 void ImageProcessor::sslErrors(const QList<QSslError> &sslErrors)
 {
 #if QT_CONFIG(ssl)
-    for (const QSslError &error : sslErrors)
-        fprintf(stderr, "SSL error: %s\n", qPrintable(error.errorString()));
+  for (const QSslError &error : sslErrors)
+    fprintf(stderr, "SSL error: %s\n", qPrintable(error.errorString()));
 #else
-    Q_UNUSED(sslErrors);
+  Q_UNUSED(sslErrors);
 #endif
 }
 
@@ -39,73 +43,83 @@ void ImageProcessor::download(const QUrl &url) {
   QNetworkReply *reply = manager.get(req);
 
 #if QT_CONFIG(ssl)
-    connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
-            SLOT(sslErrors(QList<QSslError>)));
+  connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
+          SLOT(sslErrors(QList<QSslError>)));
 #endif
 }
 
-bool ImageProcessor::saveToDisk(const QString &filename, QIODevice *data)
+void ImageProcessor::loadExisting()
 {
-    QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning("Could not open %s for writing: %s",
-                qPrintable(filename),
-                qPrintable(file.errorString()));
-        return false;
-    }
+  ThumperImageProvider *tip = ThumperImageProvider::instance();
 
-    file.write(data->readAll());
-    file.close();
-
-    return true;
+  auto idList = tip->loadExistingIds();
+  for(const auto &id : idList) {
+    emit imageReady(id);
+  }
 }
 
-QString ImageProcessor::saveFileName(const QUrl &url)
+bool ImageProcessor::saveToDisk(QIODevice *data)
 {
-    QString path = url.path();
-    QString basename = url.fileName();
+  QByteArray bytes = data->readAll();
+  QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+  QString key(hash.toHex());
 
-    if (basename.isEmpty())
-        basename = "download";
+  ThumperImageProvider *tip = ThumperImageProvider::instance();
 
-    if (QFile::exists(basename)) {
-        // already exists, don't overwrite
-        int i = 0;
-        basename += '.';
-        while (QFile::exists(basename + QString::number(i)))
-            ++i;
+  /*
+  if(tip->hasKey(key)) {
+    emit imageReady(key);
+    return true;
+  }*/
 
-        basename += QString::number(i);
+  /*
+  if(!QFile::exists(key)) {
+    qInfo("Creating new file %s", qPrintable(key));
+    QFile file(key);
+    if (!file.open(QIODevice::WriteOnly)) {
+      qWarning("Could not open %s for writing: %s",
+               qPrintable(key),
+               qPrintable(file.errorString()));
+
+      return false;
     }
+    file.write(bytes);
+    file.close();
+  }*/
 
-    return basename;
+  //QPixmap pix(key);
+  //tip->insert(key, pix);
+
+
+  tip->insert2(key, bytes);
+  emit imageReady(key);
+
+  return true;
 }
 
 void ImageProcessor::downloadFinished(QNetworkReply *reply) {
   QUrl url = reply->url();
   if (reply->error()) {
-      qWarning("Download of %s failed: %s",
-              url.toEncoded().constData(),
-              qPrintable(reply->errorString()));
+    qWarning("Download of %s failed: %s",
+             url.toEncoded().constData(),
+             qPrintable(reply->errorString()));
   } else {
-      if (isHttpRedirect(reply)) {
-          qInfo("Request was redirected.");
-      } else {
-          QString filename = saveFileName(url);
-          if (saveToDisk(filename, reply)) {
-              qInfo("Download of %s succeeded (saved to %s)",
-                     url.toEncoded().constData(), qPrintable(filename));
-          }
+    if (isHttpRedirect(reply)) {
+      qInfo("Request was redirected.");
+    } else {
+      if (saveToDisk(reply)) {
+        qInfo("Download of %s succeeded",
+              url.toEncoded().constData());
       }
+    }
   }
 
-  //currentDownloads.removeAll(reply);
   reply->deleteLater();
 }
 
 bool ImageProcessor::isHttpRedirect(QNetworkReply *reply)
 {
-    int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    return statusCode == 301 || statusCode == 302 || statusCode == 303
-           || statusCode == 305 || statusCode == 307 || statusCode == 308;
+  int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  return statusCode == 301 || statusCode == 302 || statusCode == 303
+      || statusCode == 305 || statusCode == 307 || statusCode == 308;
 }

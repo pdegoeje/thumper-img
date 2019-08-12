@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
     imageprocessor.cpp \
+  sqlite3.c \
     thumperimageprovider.cpp
 
 RESOURCES += qml.qrc
@@ -32,4 +33,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     imageprocessor.h \
+    sqlite3.h \
     thumperimageprovider.h

@@ -11,9 +11,11 @@ int main(int argc, char *argv[])
   QGuiApplication app(argc, argv);
 
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
+  qmlRegisterSingletonType<ThumperImageProvider>("thumper", 1, 0, "ThumperImageProvider",
+    [](QQmlEngine *, QJSEngine *) { return (QObject *)ThumperImageProvider::instance(); });
 
   QQmlApplicationEngine engine;
-  engine.addImageProvider(QLatin1String("colors"), new ThumperImageProvider());
+  engine.addImageProvider(QLatin1String("thumper"), ThumperImageProvider::instance());
 
   engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
   if (engine.rootObjects().isEmpty())

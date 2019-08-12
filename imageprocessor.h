@@ -11,15 +11,15 @@ class ImageProcessor : public QObject
 
   QNetworkAccessManager manager;
   bool isHttpRedirect(QNetworkReply *reply);
-  bool saveToDisk(const QString &filename, QIODevice *data);
-  QString saveFileName(const QUrl &url);
+  bool saveToDisk(QIODevice *data);
 public:
   explicit ImageProcessor(QObject *parent = nullptr);
 
   Q_INVOKABLE int nextId(const QString &prefix);
   Q_INVOKABLE void download(const QUrl &url);
+  Q_INVOKABLE void loadExisting();
 signals:
-
+  void imageReady(const QString &fileId);
 public slots:
 
 private slots:

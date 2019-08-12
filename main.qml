@@ -17,10 +17,23 @@ ApplicationWindow {
   property int cellFillMode: Image.PreserveAspectCrop
   property var sizeModel:  [160, 240, 320, 480, 531, 640]
 
-  color: 'black'
+  color: '#333'
+
+  ListModel {
+    id: imageList
+  }
 
   ImageProcessor {
     id: processor
+
+    onImageReady: {
+      console.log("Image ready: " + fileId)
+      imageList.append({ url: 'image://thumper/' + fileId })
+    }
+
+    Component.onCompleted: {
+      loadExisting()
+    }
   }
 
   header: ToolBar {
@@ -84,7 +97,7 @@ ApplicationWindow {
         console.log(result.url)
         var gen = processor.nextId(pathPrefix)
         if(gen) {
-          var path = pathPrefix + gen + ".png"
+          var path = pathPrefix + gen + ".jpg"
           console.log("save to: " + path)
           result.saveToFile(path);
         }
@@ -93,44 +106,69 @@ ApplicationWindow {
     }
   }
 
+  Component {
+    id: highlight
+    Rectangle {
+      width: list.cellWidth + list.spacing
+      height: list.cellHeight + list.spacing
+      color: 'transparent'
+      border.color: "lightsteelblue"
+      border.width: list.spacing
+      x: list.currentItem.x - list.pad
+      y: list.currentItem.y - list.pad
+    }
+  }
+
   GridView {
     anchors.fill: parent
 
     id: list
 
-    cellWidth: cellSize
-    cellHeight: cellSize
+    model: imageList
+    property int pad: spacing / 2
+    property int spacing: 10
 
-    delegate: Image {
-      id: view
-      asynchronous: true
-      height: cellSize
-      width: cellSize
-      fillMode: cellFillMode
-      cache: true
-      mipmap: false
-      smooth: true
-      source: list.model[index]
-      sourceSize.height: cellSize
-      sourceSize.width: cellSize
+    topMargin: pad
+    bottomMargin: pad
+    leftMargin: pad
+    rightMargin: pad
 
-      Rectangle {
-        visible: parent.GridView.isCurrentItem
-        x: 20
-        y: 20
-        width: cellSize - 40
-        height: cellSize - 40
-        color: Qt.rgba(0,0,0,0)
-        radius: 10
-        border.width: 1
-        border.color: 'black'
-      }
+    cellWidth: cellSize + spacing
+    cellHeight: cellSize + spacing
 
-      TapHandler {
-        onTapped: {
-          list.currentIndex = index
-          list.focus = true
-          offscreen.source = view.source
+    highlight: highlight
+    highlightFollowsCurrentItem: false
+    //highlightMoveDuration: 0
+
+    pixelAligned: true
+    interactive: true
+
+    delegate: Item {
+      width: list.cellWidth
+      height: list.cellHeight
+
+      Image {
+        x: list.pad
+        y: list.pad
+
+        id: view
+        asynchronous: true
+        height: cellSize
+        width: cellSize
+        fillMode: cellFillMode
+        cache: false
+        mipmap: false
+        smooth: true
+        source: url
+        sourceSize.height: cellSize
+        sourceSize.width: cellSize
+
+        TapHandler {
+          onTapped: {
+            list.currentIndex = index
+            list.focus = true
+            offscreen.source = view.source
+          }
         }
       }
     }
@@ -151,8 +189,7 @@ ApplicationWindow {
       if (drop.hasUrls && drop.proposedAction == Qt.CopyAction) {
         drop.acceptProposedAction()
 
-        list.model = [].concat(drop.urls)
-        list.model.forEach(function(x) {
+        drop.urls.forEach(function(x) {
           processor.download(x)
         });
       }
@@ -167,16 +204,16 @@ ApplicationWindow {
   }
 
   Shortcut {
-    sequence: "H"
+    sequence: "Ctrl+H"
     onActivated: {
       toolbar.visible = !toolbar.visible
     }
   }
 
   Shortcut {
-    sequence: "T"
+    sequence: "Ctrl+T"
     onActivated: {
-      list.model = [ "image://colors/yellow" ]
+      imageList.clear()
     }
   }
 }
