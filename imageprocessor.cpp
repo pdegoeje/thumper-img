@@ -15,16 +15,9 @@ ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
           SLOT(downloadFinished(QNetworkReply*)));
 }
 
-int ImageProcessor::nextId(const QString &prefix) {
-  for(int i = 1; i < 1000; i++) {
-    QString val = QString::asprintf("%s%d.png", qUtf8Printable(prefix), i);
-    if(!QFile::exists(val)) {
-      QClipboard *cb = QGuiApplication::clipboard();
-      cb->setText(QString::asprintf("%s%d", qUtf8Printable(prefix), i));
-      return i;
-    }
-  }
-  return 0;
+void ImageProcessor::setClipBoard(const QString &data) {
+  QClipboard *cb = QGuiApplication::clipboard();
+  cb->setText(data);
 }
 
 void ImageProcessor::sslErrors(const QList<QSslError> &sslErrors)
@@ -66,32 +59,7 @@ bool ImageProcessor::saveToDisk(QIODevice *data)
 
   ThumperImageProvider *tip = ThumperImageProvider::instance();
 
-  /*
-  if(tip->hasKey(key)) {
-    emit imageReady(key);
-    return true;
-  }*/
-
-  /*
-  if(!QFile::exists(key)) {
-    qInfo("Creating new file %s", qPrintable(key));
-    QFile file(key);
-    if (!file.open(QIODevice::WriteOnly)) {
-      qWarning("Could not open %s for writing: %s",
-               qPrintable(key),
-               qPrintable(file.errorString()));
-
-      return false;
-    }
-    file.write(bytes);
-    file.close();
-  }*/
-
-  //QPixmap pix(key);
-  //tip->insert(key, pix);
-
-
-  tip->insert2(key, bytes);
+  tip->insert(key, bytes);
   emit imageReady(key);
 
   return true;
@@ -107,6 +75,9 @@ void ImageProcessor::downloadFinished(QNetworkReply *reply) {
     if (isHttpRedirect(reply)) {
       qInfo("Request was redirected.");
     } else {
+      qInfo("Content-Disposition: %s",
+            qUtf8Printable(reply->header(QNetworkRequest::ContentDispositionHeader).toString()));
+
       if (saveToDisk(reply)) {
         qInfo("Download of %s succeeded",
               url.toEncoded().constData());

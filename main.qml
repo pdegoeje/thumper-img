@@ -9,13 +9,17 @@ ApplicationWindow {
   visible: true
   width: 640
   height: 480
-  title: "Thumper 1.0.1"
+  title: "Thumper 1.1.0"
 
   property string pathPrefix: pathPrefixField.text
-  property int cellSize: 240
+  property int imagesPerRow: 6
+  property int cellSize: (list.width - spacing) / imagesPerRow - spacing
+  property int spacing: 8
   property int actualSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var sizeModel:  [160, 240, 320, 480, 531, 640]
+  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20]
+  property real aspectRatio: 1.0
+  property var aspectRatioModel: [0.5, 0.75, 1.0, 1.5, 2.0]
 
   color: '#333'
 
@@ -28,7 +32,7 @@ ApplicationWindow {
 
     onImageReady: {
       console.log("Image ready: " + fileId)
-      imageList.append({ url: 'image://thumper/' + fileId })
+      imageList.append({ url: 'image://thumper/' + fileId, 'fileId': fileId })
     }
 
     Component.onCompleted: {
@@ -41,21 +45,21 @@ ApplicationWindow {
     RowLayout {
       anchors.fill: parent
       Label {
-        text: "Prefix"
+        text: "Path"
       }
 
       TextField {
         id: pathPrefixField
-        text: "image"
+        text: "./"
         selectByMouse: true
       }
 
       ComboBox {
         model: sizeModel
-        displayText: "Preview: %1px".arg(currentText)
-        currentIndex: 1
+        displayText: "Width: %1".arg(currentText)
+        currentIndex: sizeModel.indexOf(imagesPerRow)
         onActivated: {
-          cellSize = currentText
+          imagesPerRow = currentText
         }
       }
 
@@ -65,6 +69,15 @@ ApplicationWindow {
         currentIndex: 4
         onActivated: {
           actualSize = currentText
+        }
+      }
+
+      ComboBox {
+        model: aspectRatioModel
+        displayText: "Aspect: %1".arg(currentText)
+        currentIndex: aspectRatioModel.indexOf(aspectRatio)
+        onActivated: {
+          aspectRatio = currentText
         }
       }
 
@@ -83,7 +96,7 @@ ApplicationWindow {
   }
 
   Image {
-    id: offscreen
+    id: offscreen    
     visible: false
     width: actualSize
     height: actualSize
@@ -91,16 +104,17 @@ ApplicationWindow {
     cache: true
     fillMode: Image.PreserveAspectFit
 
+    property string fileId
+
     onStatusChanged: if(status == Image.Ready) {
-      console.log("Image loaded")
       offscreen.grabToImage(function(result) {
         console.log(result.url)
-        var gen = processor.nextId(pathPrefix)
-        if(gen) {
-          var path = pathPrefix + gen + ".jpg"
-          console.log("save to: " + path)
-          result.saveToFile(path);
-        }
+        var path = pathPrefix + fileId + ".jpg"
+        console.log("Saved to: " + path)
+        processor.setClipBoard(fileId)
+        result.saveToFile(path);
+
+        offscreen.fileId = ''
         offscreen.source = ''
       });
     }
@@ -113,7 +127,7 @@ ApplicationWindow {
       height: list.cellHeight + list.spacing
       color: 'transparent'
       border.color: "lightsteelblue"
-      border.width: list.spacing
+      border.width: spacing
       x: list.currentItem.x - list.pad
       y: list.currentItem.y - list.pad
     }
@@ -126,7 +140,6 @@ ApplicationWindow {
 
     model: imageList
     property int pad: spacing / 2
-    property int spacing: 10
 
     topMargin: pad
     bottomMargin: pad
@@ -134,7 +147,7 @@ ApplicationWindow {
     rightMargin: pad
 
     cellWidth: cellSize + spacing
-    cellHeight: cellSize + spacing
+    cellHeight: cellSize * aspectRatio + spacing
 
     highlight: highlight
     highlightFollowsCurrentItem: false
@@ -153,20 +166,21 @@ ApplicationWindow {
 
         id: view
         asynchronous: true
-        height: cellSize
+        height: cellSize * aspectRatio
         width: cellSize
         fillMode: cellFillMode
-        cache: false
+        cache: true
         mipmap: false
         smooth: true
         source: url
-        sourceSize.height: cellSize
-        sourceSize.width: cellSize
+        sourceSize.height: height
+        sourceSize.width: width
 
         TapHandler {
           onTapped: {
             list.currentIndex = index
             list.focus = true
+            offscreen.fileId = fileId
             offscreen.source = view.source
           }
         }

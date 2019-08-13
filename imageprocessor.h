@@ -15,7 +15,7 @@ class ImageProcessor : public QObject
 public:
   explicit ImageProcessor(QObject *parent = nullptr);
 
-  Q_INVOKABLE int nextId(const QString &prefix);
+  Q_INVOKABLE void setClipBoard(const QString &data);
   Q_INVOKABLE void download(const QUrl &url);
   Q_INVOKABLE void loadExisting();
 signals:

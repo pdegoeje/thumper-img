@@ -15,17 +15,18 @@ class ThumperImageProvider : public QObject, public QQuickImageProvider
   ThumperImageProvider();
   virtual ~ThumperImageProvider();
 
-  QMap<QString, QPixmap> m_data;
   sqlite3 *m_db = nullptr;
 public:
-  QPixmap requestPixmap(const QString &id, QSize *size, const QSize &requestedSize) override;
-  void insert(const QString &id, QPixmap &pixmap);
-  void insert2(const QString &id, const QByteArray &data);
-  bool hasKey(const QString &id) { return m_data.contains(id); }
+  QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
+  void insert(const QString &id, const QByteArray &data);
 
   QVector<QString> loadExistingIds();
 
   static ThumperImageProvider *instance();
+
+  // QQmlImageProviderBase interface
+public:
+  ImageType imageType() const override { return ImageType::Image; }
 };
 
 #endif // THUMPERIMAGEPROVIDER_H

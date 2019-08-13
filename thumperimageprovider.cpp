@@ -2,10 +2,13 @@
 
 #include "sqlite3.h"
 
+#include <QBuffer>
+#include <QImageReader>
+
 ThumperImageProvider *ThumperImageProvider::m_instance;
 
 ThumperImageProvider::ThumperImageProvider() : QQuickImageProvider(QQuickImageProvider::Pixmap) {
-  if(sqlite3_open("test.db", &m_db) != SQLITE_OK) {
+  if(sqlite3_open_v2("test.db", &m_db, SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr) != SQLITE_OK) {
     qWarning("Coudn't open SQLite database: %s", sqlite3_errmsg(m_db));
   }
 
@@ -21,9 +24,8 @@ ThumperImageProvider::~ThumperImageProvider()
   sqlite3_close(m_db);
 }
 
-QPixmap ThumperImageProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize)
+QImage ThumperImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
 {
-  QPixmap pix;
   sqlite3_stmt *stmt = nullptr;
 
   if(sqlite3_prepare_v2(m_db, "SELECT image FROM store WHERE id = ?1", -1, &stmt, nullptr) != SQLITE_OK)
@@ -35,29 +37,46 @@ QPixmap ThumperImageProvider::requestPixmap(const QString &id, QSize *size, cons
   if(sqlite3_step(stmt) != SQLITE_ROW)
     goto error;
 
-  const uchar *data = (const uchar *)sqlite3_column_blob(stmt, 0);
+  const char *data = (const char *)sqlite3_column_blob(stmt, 0);
   int bytes = sqlite3_column_bytes(stmt, 0);
 
-  pix.loadFromData(data, bytes);
-  if(size) {
-    *size = QSize(pix.width(), pix.height());
-  }
+  {
+    auto byte_array = QByteArray::fromRawData(data, bytes);
+    QBuffer buffer(&byte_array);
+    QImageReader reader(&buffer);
 
-  sqlite3_finalize(stmt);
-  return pix;
+    auto actualSize = reader.size();
+
+    float scalex = (float)requestedSize.width() / actualSize.width();
+    float scaley = (float)requestedSize.height() / actualSize.height();
+
+    QSize newSize;
+    if(scalex > scaley) {
+      newSize.setWidth(requestedSize.width());
+      newSize.setHeight(actualSize.height() * scalex);
+    } else {
+      newSize.setWidth(actualSize.width() * scaley);
+      newSize.setHeight(requestedSize.height());
+    }
+
+    reader.setScaledSize(newSize);
+    QImage result = reader.read();
+
+    if(size) {
+      *size = QSize(result.width(), result.height());
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
+  }
 
 error:
   qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
   sqlite3_finalize(stmt);
-  return pix;
+  return {};
 }
 
-void ThumperImageProvider::insert(const QString &id, QPixmap &pixmap)
-{
-  m_data.insert(id, pixmap);
-}
-
-void ThumperImageProvider::insert2(const QString &id, const QByteArray &data)
+void ThumperImageProvider::insert(const QString &id, const QByteArray &data)
 {
   sqlite3_stmt *stmt = nullptr;
 
