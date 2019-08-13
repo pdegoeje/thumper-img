@@ -13,12 +13,14 @@ ApplicationWindow {
 
   property string pathPrefix: pathPrefixField.text
   property int imagesPerRow: 6
-  property int cellSize: (list.width - spacing) / imagesPerRow - spacing
+  property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
+  property int imageHeight: imageWidth * aspectRatio
   property int spacing: 8
   property int actualSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
   property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20]
-  property real aspectRatio: 1.0
+  property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
+  property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.75, 1.0, 1.5, 2.0]
 
   color: '#333'
@@ -64,9 +66,9 @@ ApplicationWindow {
       }
 
       ComboBox {
-        model: sizeModel
+        model: renderModel
         displayText: "Render: %1px".arg(currentText)
-        currentIndex: 4
+        currentIndex: renderModel.indexOf(actualSize)
         onActivated: {
           actualSize = currentText
         }
@@ -123,9 +125,9 @@ ApplicationWindow {
   Component {
     id: highlight
     Rectangle {
-      width: list.cellWidth + list.spacing
-      height: list.cellHeight + list.spacing
-      color: 'transparent'
+      width: list.cellWidth + spacing
+      height: list.cellHeight + spacing
+      color: '#555' //'green'//'transparent'
       border.color: "lightsteelblue"
       border.width: spacing
       x: list.currentItem.x - list.pad
@@ -146,8 +148,8 @@ ApplicationWindow {
     leftMargin: pad
     rightMargin: pad
 
-    cellWidth: cellSize + spacing
-    cellHeight: cellSize * aspectRatio + spacing
+    cellWidth: imageWidth + spacing
+    cellHeight: imageHeight + spacing
 
     highlight: highlight
     highlightFollowsCurrentItem: false
@@ -166,8 +168,8 @@ ApplicationWindow {
 
         id: view
         asynchronous: true
-        height: cellSize * aspectRatio
-        width: cellSize
+        height: imageHeight
+        width: imageWidth
         fillMode: cellFillMode
         cache: true
         mipmap: false
