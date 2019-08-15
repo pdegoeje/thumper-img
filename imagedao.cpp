@@ -47,10 +47,10 @@ void ImageDao::addTag(const QString &id, const QString &tag)
   if(sqlite3_prepare_v2(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES ( ?1, ?2 )", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 2, qUtf8Printable(tag.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 2, qUtf8Printable(tag), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
   if(sqlite3_step(stmt) != SQLITE_DONE)
@@ -74,10 +74,10 @@ void ImageDao::removeTag(const QString &id, const QString &tag)
   if(sqlite3_prepare_v2(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 2, qUtf8Printable(tag.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 2, qUtf8Printable(tag), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
   if(sqlite3_step(stmt) != SQLITE_DONE)
@@ -101,7 +101,7 @@ QStringList ImageDao::tagsById(const QString &id)
   if(sqlite3_prepare_v2(m_db, "SELECT tag FROM tag WHERE id = ?1", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
   while(sqlite3_step(stmt) == SQLITE_ROW) {
@@ -147,7 +147,7 @@ QImage ImageDao::requestImage(const QString &id, QSize *size, const QSize &reque
   if(sqlite3_prepare_v2(m_db, "SELECT image FROM store WHERE id = ?1", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
   if(sqlite3_step(stmt) != SQLITE_ROW)
@@ -202,7 +202,7 @@ void ImageDao::insert(const QString &id, const QByteArray &data)
   if(sqlite3_prepare_v2(m_db, "INSERT OR IGNORE INTO store (id, image) VALUES (?1, ?2)", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
-  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
     goto error;
 
   if(sqlite3_bind_blob(stmt, 2, data.data(), data.length(), SQLITE_TRANSIENT) != SQLITE_OK)
@@ -219,7 +219,7 @@ error:
   sqlite3_finalize(stmt);
 }
 
-QStringList ImageDao::loadExistingIds()
+QStringList ImageDao::allIds()
 {
   QStringList ids;
 
@@ -242,6 +242,108 @@ error:
   return ids;
 }
 
+QStringList ImageDao::idsByTags(const QStringList &tags)
+{
+  return {};
+}
+
+QVariantList ImageDao::tagsByMultipleIds(const QStringList &ids)
+{
+  QVariantList result;
+
+  sqlite3_stmt *stmt = nullptr;
+
+  createSelectionTable(ids);
+
+  if(sqlite3_prepare_v2(m_db, "SELECT tag, count(*) as count FROM tag WHERE id IN (SELECT item FROM selection) GROUP BY tag ORDER BY count DESC", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  while(sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *data = (const char *)sqlite3_column_text(stmt, 0);
+    int count = sqlite3_column_int(stmt, 1);
+    QVariantList kv = { QVariant::fromValue(QString::fromUtf8(data)), QVariant::fromValue(count) };
+    result.push_back(kv);
+  }
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+  destroySelectionTable();
+  return result;
+}
+
+void ImageDao::addTagToMultipleIds(const QStringList &ids, const QString &tag)
+{
+  createSelectionTable(ids);
+
+  sqlite3_stmt *stmt = nullptr;
+  if(sqlite3_prepare_v2(m_db, "INSERT OR IGNORE INTO tag (id, tag) SELECT item, ?1 FROM selection", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(tag), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_step(stmt) != SQLITE_DONE)
+    goto error;
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+  destroySelectionTable();
+}
+
+void ImageDao::removeTagFromMultipleIds(const QStringList &ids, const QString &tag)
+{
+  createSelectionTable(ids);
+
+  sqlite3_stmt *stmt = nullptr;
+  if(sqlite3_prepare_v2(m_db, "DELETE FROM tag WHERE tag = ?1 AND id IN (SELECT item FROM selection)", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(tag), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_step(stmt) != SQLITE_DONE)
+    goto error;
+
+  qInfo("removeTagFromMultipleIds");
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+  destroySelectionTable();
+}
+
+QVariantList ImageDao::allTagsCount()
+{
+  QVariantList result;
+
+  sqlite3_stmt *stmt = nullptr;
+
+  if(sqlite3_prepare_v2(m_db, "SELECT tag, count(*) as count FROM tag GROUP BY tag ORDER BY count DESC", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  while(sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *data = (const char *)sqlite3_column_text(stmt, 0);
+    int count = sqlite3_column_int(stmt, 1);
+    QVariantList kv = { QVariant::fromValue(QString::fromUtf8(data)), QVariant::fromValue(count) };
+    result.push_back(kv);
+  }
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+  return result;
+}
+
 ImageDao *ImageDao::instance()
 {
   if(!m_instance) {
@@ -249,4 +351,53 @@ ImageDao *ImageDao::instance()
   }
 
   return m_instance;
+}
+
+void ImageDao::createTemporaryTable(const QString &tableName, const QStringList &items)
+{
+  sqlite3_stmt *stmt = nullptr;
+  if(sqlite3_exec(m_db, qUtf8Printable(QStringLiteral("CREATE TEMPORARY TABLE %1 (item PRIMARY KEY)").arg(tableName)), nullptr, nullptr, nullptr) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_prepare_v2(m_db, qUtf8Printable(QStringLiteral("INSERT INTO %1 (item) VALUES (?1)").arg(tableName)), -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  for(const QString &id : items) {
+    if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+      goto error;
+
+    if(sqlite3_step(stmt) != SQLITE_DONE)
+      goto error;
+
+    if(sqlite3_reset(stmt) != SQLITE_OK)
+      goto error;
+  }
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+}
+
+void ImageDao::destroyTemporaryTable(const QString &tableName)
+{
+  sqlite3_stmt *stmt = nullptr;
+  if(sqlite3_exec(m_db, qUtf8Printable(QStringLiteral("DROP TABLE %1").arg(tableName)), nullptr, nullptr, nullptr) != SQLITE_OK)
+    goto error;
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+}
+
+void ImageDao::createSelectionTable(const QStringList &ids)
+{
+  createTemporaryTable(QStringLiteral("selection"), ids);
+}
+
+void ImageDao::destroySelectionTable()
+{
+  destroyTemporaryTable(QStringLiteral("selection"));
 }

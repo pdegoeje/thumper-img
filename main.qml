@@ -29,16 +29,34 @@ ApplicationWindow {
     id: imageList
   }
 
+  property var selectionModel: []
+  property var selectionTagCount: []
+  property var allTagsCount: []
+
+  function rebuildSelectionModel() {
+    var newModel = []
+    for(var i = 0; i < imageList.count; i++) {
+      if(imageList.get(i).selected)
+        newModel.push(imageList.get(i).fileId)
+    }
+    selectionModel = newModel
+    selectionTagCount = ImageDao.tagsByMultipleIds(selectionModel)
+    allTagsCount = ImageDao.allTagsCount()
+  }
+
   ImageProcessor {
     id: processor
 
     onImageReady: {
-      imageList.append({ url: 'image://thumper/' + fileId, 'fileId': fileId })
+      imageList.append({ 'url': 'image://thumper/' + fileId,
+                         'fileId': fileId,
+                         'selected' : false
+                       })
     }
   }
 
   Component.onCompleted: {
-    var ids = ImageDao.loadExistingIds()
+    var ids = ImageDao.allIds()
     for(var i in ids) {
       processor.imageReady(ids[i])
     }
@@ -95,6 +113,67 @@ ApplicationWindow {
 
       Item {
         Layout.fillWidth: true
+      }
+    }
+  }
+
+  footer: Rectangle {
+    visible: toolbar.visible
+    height: myFlow.implicitHeight
+
+    color: 'transparent'
+
+    Flow {
+      padding: 4
+
+      id: myFlow
+      anchors.left: parent.left
+      anchors.right: parent.right
+      spacing: 4
+      Label {
+        padding: 4
+        background: Rectangle {
+          color: '#cc000000'
+        }
+        color: 'white'
+
+        text: "Selected %1 images".arg(selectionModel.length)
+      }
+
+      Repeater {
+        model: selectionTagCount
+        Tag {
+          property string tag: modelData[0]
+          property int count: modelData[1]
+          backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
+          text: tag + (count > 1 ? " x" + count : "")
+
+          onClicked: {
+            if(count == selectionModel.length) {
+              ImageDao.removeTagFromMultipleIds(selectionModel, tag)
+              rebuildSelectionModel()
+            } else {
+              ImageDao.addTagToMultipleIds(selectionModel, tag)
+              rebuildSelectionModel()
+            }
+          }
+        }
+      }
+
+      Repeater {
+        model: allTagsCount
+        Tag {
+          property string tag: modelData[0]
+          property int count: modelData[1]
+
+          active: false
+          text: tag + (count > 1 ? " x" + count : "")
+
+          onClicked: {
+            ImageDao.addTagToMultipleIds(selectionModel, tag)
+            rebuildSelectionModel()
+          }
+        }
       }
     }
   }
@@ -179,6 +258,18 @@ ApplicationWindow {
         source: url
         sourceSize.height: height
         sourceSize.width: width
+
+        opacity: selected ? 1 : 0.2
+
+        CheckBox {
+          checked: selected
+          onClicked: {
+            if(selected != checked) {
+              selected = checked
+              rebuildSelectionModel()
+            }
+          }
+        }
 
         TapHandler {
           onTapped: {

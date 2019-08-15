@@ -8,12 +8,15 @@ Label {
   id: root
   signal clicked()
   property bool active: true
+  property alias backgroundColor: bgRect.color
 
   color: active ? 'white' : 'black'
+  backgroundColor: active ? 'green' : 'grey'
+
   padding: 4
   
   background: Rectangle {
-    color: active ? 'green' : 'grey'
+    id: bgRect
     radius: 4
   }
   
