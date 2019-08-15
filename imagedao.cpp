@@ -244,7 +244,29 @@ error:
 
 QStringList ImageDao::idsByTags(const QStringList &tags)
 {
-  return {};
+  QStringList result;
+
+  createTemporaryTable(QStringLiteral("taglist"), tags);
+
+  sqlite3_stmt *stmt = nullptr;
+  if(sqlite3_prepare_v2(m_db, "SELECT id, count(*) as count FROM tag WHERE tag IN (SELECT item FROM taglist) GROUP BY id HAVING count = ?1", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_bind_int(stmt, 1, tags.length()) != SQLITE_OK)
+    goto error;
+
+  while(sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *id = (const char *)sqlite3_column_text(stmt, 0);
+    result.push_back(QString::fromUtf8(id));
+  }
+
+  goto done;
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+done:
+  sqlite3_finalize(stmt);
+  destroyTemporaryTable(QStringLiteral("taglist"));
+  return result;
 }
 
 QVariantList ImageDao::tagsByMultipleIds(const QStringList &ids)

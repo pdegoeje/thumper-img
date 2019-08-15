@@ -33,6 +33,8 @@ ApplicationWindow {
   property var selectionTagCount: []
   property var allTagsCount: []
 
+  property var searchTagsModel: []
+
   function rebuildSelectionModel() {
     var newModel = []
     for(var i = 0; i < imageList.count; i++) {
@@ -62,10 +64,27 @@ ApplicationWindow {
     }
   }
 
+  onSearchTagsModelChanged: {
+    console.log("searchTagsModel changed", searchTagsModel, searchTagsModel.length)
+    var ids
+    if(searchTagsModel.length > 0) {
+      console.log("Search")
+      ids = ImageDao.idsByTags(searchTagsModel)
+    } else {
+      console.log("All Ids")
+      ids = ImageDao.allIds()
+    }
+    imageList.clear()
+    for(var i in ids) {
+      processor.imageReady(ids[i])
+    }
+  }
+
   header: ToolBar {
     id: toolbar
+    ColumnLayout {
     RowLayout {
-      anchors.fill: parent
+
       Label {
         text: "Path"
       }
@@ -114,6 +133,22 @@ ApplicationWindow {
       Item {
         Layout.fillWidth: true
       }
+    }
+
+    RowLayout {
+      TextField {
+        onAccepted: {
+          var input = text.trim()
+          if(input !== '') {
+            searchTagsModel = input.split(" ")
+          } else {
+            searchTagsModel = []
+          }
+
+          console.log(searchTagsModel)
+        }
+      }
+    }
     }
   }
 
