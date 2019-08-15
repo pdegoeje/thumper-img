@@ -57,13 +57,6 @@ ApplicationWindow {
     }
   }
 
-  Component.onCompleted: {
-    var ids = ImageDao.allIds()
-    for(var i in ids) {
-      processor.imageReady(ids[i])
-    }
-  }
-
   onSearchTagsModelChanged: {
     console.log("searchTagsModel changed", searchTagsModel, searchTagsModel.length)
     var ids
@@ -136,6 +129,10 @@ ApplicationWindow {
     }
 
     RowLayout {
+      Label {
+        text: "Search"
+      }
+
       TextField {
         onAccepted: {
           var input = text.trim()
@@ -210,6 +207,39 @@ ApplicationWindow {
           }
         }
       }
+
+      Tag {
+        text: 'Add Tag'
+        backgroundColor: 'blue'
+        onClicked: {
+          addTagPopup.open()
+        }
+      }
+    }
+  }
+
+  Popup {
+    id: addTagPopup
+    modal: true
+    parent: Overlay.overlay
+    anchors.centerIn: Overlay.overlay
+    focus: true
+
+    RowLayout {
+      Label {
+        text: "Add tag"
+      }
+
+      TextField {
+        focus: true
+        id: tagField
+        selectByMouse: true
+        onAccepted: {
+          ImageDao.addTagToMultipleIds(selectionModel, text)
+          rebuildSelectionModel()
+          addTagPopup.close()
+        }
+      }
     }
   }
 
@@ -245,79 +275,96 @@ ApplicationWindow {
       height: list.cellHeight + spacing
       color: '#555' //'green'//'transparent'
       border.color: "lightsteelblue"
+      opacity: list.activeFocus ? 1 : 0.3
       border.width: spacing
-      x: list.currentItem.x - list.pad
-      y: list.currentItem.y - list.pad
+      x: list.currentItem ? list.currentItem.x - list.pad : 0
+      y: list.currentItem ? list.currentItem.y - list.pad : 0
     }
   }
-
-  GridView {
+  Control {
+    focusPolicy: Qt.StrongFocus
     anchors.fill: parent
 
-    id: list
+    onActiveFocusChanged: {
+      if(focus) {
+        list.forceActiveFocus()
+      }
+    }
 
-    model: imageList
-    property int pad: spacing / 2
+    contentItem: GridView {
+      anchors.fill: parent
 
-    topMargin: pad
-    bottomMargin: pad
-    leftMargin: pad
-    rightMargin: pad
+      id: list
 
-    cellWidth: imageWidth + spacing
-    cellHeight: imageHeight + spacing
+      focus: true
 
-    highlight: highlight
-    highlightFollowsCurrentItem: false
-    //highlightMoveDuration: 0
+      model: imageList
+      property int pad: spacing / 2
 
-    pixelAligned: true
-    interactive: true
+      topMargin: pad
+      bottomMargin: pad
+      leftMargin: pad
+      rightMargin: pad
 
-    delegate: Item {
-      width: list.cellWidth
-      height: list.cellHeight
+      cellWidth: imageWidth + spacing
+      cellHeight: imageHeight + spacing
 
-      Image {
-        x: list.pad
-        y: list.pad
+      highlight: highlight
+      highlightFollowsCurrentItem: false
+      //highlightMoveDuration: 0
 
-        id: view
-        asynchronous: true
-        height: imageHeight
-        width: imageWidth
-        fillMode: cellFillMode
-        cache: true
-        mipmap: false
-        smooth: true
-        source: url
-        sourceSize.height: height
-        sourceSize.width: width
+      pixelAligned: true
+      interactive: true
 
-        opacity: selected ? 1 : 0.2
+      TapHandler {
+        onTapped: {
+          list.forceActiveFocus()
+        }
+      }
 
-        CheckBox {
-          checked: selected
-          onClicked: {
-            if(selected != checked) {
-              selected = checked
-              rebuildSelectionModel()
+      delegate: Item {
+        width: list.cellWidth
+        height: list.cellHeight
+
+        Image {
+          x: list.pad
+          y: list.pad
+
+          id: view
+          asynchronous: true
+          height: imageHeight
+          width: imageWidth
+          fillMode: cellFillMode
+          cache: true
+          mipmap: false
+          smooth: true
+          source: url
+          sourceSize.height: height
+          sourceSize.width: width
+
+          opacity: (selectionModel.length > 0 && !selected) ? 0.4 : 1
+
+          CheckBox {
+            focusPolicy: Qt.NoFocus
+            checked: selected
+            onClicked: {
+              if(selected != checked) {
+                selected = checked
+                rebuildSelectionModel()
+              }
             }
           }
-        }
 
-        TapHandler {
-          onTapped: {
-            list.currentIndex = index
-            list.focus = true
-            offscreen.fileId = fileId
-            offscreen.source = view.source
+          TapHandler {
+            onTapped: {
+              list.currentIndex = index
+              offscreen.fileId = fileId
+              offscreen.source = view.source
+            }
           }
         }
       }
     }
-
-    focus: true
   }
 
   Loader {
@@ -328,17 +375,6 @@ ApplicationWindow {
       id: lightbox
 
       property string currentFileId: imageList.get(list.currentIndex).fileId
-      property var allTags: []
-      property var myTags: []
-      property var myUnusedTags: []
-
-      function reloadTags() {
-        allTags = ImageDao.allTags()
-        myTags = ImageDao.tagsById(currentFileId)
-        myUnusedTags = allTags.filter(function(v) { return myTags.indexOf(v) === -1; });
-      }
-
-      onCurrentFileIdChanged: reloadTags()
 
       parent: Overlay.overlay
       anchors.centerIn: Overlay.overlay
@@ -353,7 +389,12 @@ ApplicationWindow {
         color:"#CC000000"
       }
 
-      background: Item {}
+      background: Item {
+        MouseArea {
+          anchors.fill: parent
+          onClicked: lightbox.close()
+        }
+      }
 
       Item {
         implicitWidth: content.paintedWidth
@@ -374,52 +415,6 @@ ApplicationWindow {
           height: sourceSize.height
           fillMode: Image.PreserveAspectFit
           source: imageList.get(list.currentIndex).url
-        }
-
-        Flow {
-          anchors.fill: parent
-          x: 10
-          y: 10
-          spacing: 4
-
-          Repeater {
-            id: tagList
-            model: lightbox.myTags
-            Tag {
-              text: modelData
-              active: true
-              onClicked: {
-                ImageDao.removeTag(lightbox.currentFileId, text)
-                lightbox.reloadTags()
-              }
-            }
-          }
-
-          Repeater {
-            id: allTagList
-            model: lightbox.myUnusedTags
-            Tag {
-              text: modelData
-              active: false
-
-              onClicked: {
-                ImageDao.addTag(lightbox.currentFileId, text)
-                lightbox.reloadTags()
-              }
-            }
-          }
-
-
-          TextField {
-            focus: true
-            onEditingFinished: {
-              if(text.trim() !== '') {
-                ImageDao.addTag(currentFileId, text)
-                lightbox.reloadTags()
-                text = ''
-              }
-            }
-          }
         }
       }
     }
@@ -460,9 +455,25 @@ ApplicationWindow {
   }
 
   Shortcut {
-    sequence: "Ctrl+T"
+    sequence: "Ctrl+D"
     onActivated: {
-      imageList.clear()
+      console.log("Deselect")
+      for(var i = 0; i < imageList.count; i++) {
+        //imageList.get(i).selected = false
+        imageList.setProperty(i, 'selected', false)
+      }
+      rebuildSelectionModel()
+    }
+  }
+
+  Shortcut {
+    sequence: "Ctrl+A"
+    onActivated: {
+      console.log("Select all")
+      for(var i = 0; i < imageList.count; i++) {
+        imageList.setProperty(i, 'selected', true)
+      }
+      rebuildSelectionModel()
     }
   }
 
