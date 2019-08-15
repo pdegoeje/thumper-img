@@ -1,5 +1,6 @@
 #include "imageprocessor.h"
 #include "thumperimageprovider.h"
+#include "imagedao.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -11,8 +12,8 @@ int main(int argc, char *argv[])
   QGuiApplication app(argc, argv);
 
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
-  qmlRegisterSingletonType<ThumperImageProvider>("thumper", 1, 0, "ThumperImageProvider",
-    [](QQmlEngine *, QJSEngine *) { return (QObject *)ThumperImageProvider::instance(); });
+  qmlRegisterSingletonType<ImageDao>("thumper", 1, 0, "ImageDao",
+    [](QQmlEngine *, QJSEngine *) { return (QObject *)ImageDao::instance(); });
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), ThumperImageProvider::instance());

@@ -1,6 +1,6 @@
 import QtQuick 2.12
 import QtQuick.Window 2.12
-import QtQuick.Controls 2.4
+import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.3
 import thumper 1.0
 
@@ -192,6 +192,79 @@ ApplicationWindow {
     focus: true
   }
 
+  Loader {
+    id: lightboxLoader
+    active: false
+
+    sourceComponent: Popup {
+      id: lightbox
+
+      property string currentFileId: imageList.get(list.currentIndex).fileId
+
+      parent: Overlay.overlay
+      anchors.centerIn: Overlay.overlay
+      dim: true
+      visible: true
+
+      padding: 0
+
+      onClosed: lightboxLoader.active = false
+
+      Overlay.modeless: Rectangle {
+        color:"#CC000000"
+      }
+
+      background: Item {}
+
+      Item {
+        implicitWidth: content.paintedWidth
+        implicitHeight: content.paintedHeight
+
+        Image {
+          id: content
+
+          asynchronous: true
+
+          anchors.centerIn: parent
+
+          sourceSize.width: root.width - 40
+          sourceSize.height: root.height - 40
+
+          smooth: true
+          width: sourceSize.width
+          height: sourceSize.height
+          fillMode: Image.PreserveAspectFit
+          source: imageList.get(list.currentIndex).url
+        }
+
+        Flow {
+          x: 10
+          y: 10
+          spacing: 10
+
+          Repeater {
+            id: tagList
+            model: ImageDao.tagsById(lightbox.currentFileId)
+            Label {
+              background: Rectangle {
+              }
+              text: modelData
+            }
+          }
+
+          TextField {
+            focus: true
+            onEditingFinished: {
+              ImageDao.addTag(currentFileId, text)
+              text = ''
+              tagList.model = ImageDao.tagsById(lightbox.currentFileId)
+            }
+          }
+        }
+      }
+    }
+  }
+
   DropArea {
     anchors.fill: parent
     keys: ["text/uri-list"]
@@ -230,6 +303,13 @@ ApplicationWindow {
     sequence: "Ctrl+T"
     onActivated: {
       imageList.clear()
+    }
+  }
+
+  Shortcut {
+    sequence: "Ctrl+Space"
+    onActivated: {
+      lightboxLoader.active = !lightboxLoader.active
     }
   }
 }

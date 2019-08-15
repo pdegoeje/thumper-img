@@ -1,5 +1,5 @@
 #include "imageprocessor.h"
-#include "thumperimageprovider.h"
+#include "imagedao.h"
 
 #include <QFile>
 #include <QClipboard>
@@ -43,7 +43,7 @@ void ImageProcessor::download(const QUrl &url) {
 
 void ImageProcessor::loadExisting()
 {
-  ThumperImageProvider *tip = ThumperImageProvider::instance();
+  ImageDao *tip = ImageDao::instance();
 
   auto idList = tip->loadExistingIds();
   for(const auto &id : idList) {
@@ -57,7 +57,7 @@ bool ImageProcessor::saveToDisk(QIODevice *data)
   QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
   QString key(hash.toHex());
 
-  ThumperImageProvider *tip = ThumperImageProvider::instance();
+  ImageDao *tip = ImageDao::instance();
 
   tip->insert(key, bytes);
   emit imageReady(key);
