@@ -65,6 +65,33 @@ error:
   return;
 }
 
+void ImageDao::removeTag(const QString &id, const QString &tag)
+{
+  QStringList tags;
+
+  sqlite3_stmt *stmt = nullptr;
+
+  if(sqlite3_prepare_v2(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_bind_text(stmt, 2, qUtf8Printable(tag.toUtf8()), -1, SQLITE_TRANSIENT) != SQLITE_OK)
+    goto error;
+
+  if(sqlite3_step(stmt) != SQLITE_DONE)
+    goto error;
+
+  sqlite3_finalize(stmt);
+  return;
+
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+  sqlite3_finalize(stmt);
+  return;
+}
+
 QStringList ImageDao::tagsById(const QString &id)
 {
   QStringList tags;
@@ -85,6 +112,28 @@ QStringList ImageDao::tagsById(const QString &id)
   sqlite3_finalize(stmt);
   return tags;
 
+error:
+  qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
+  sqlite3_finalize(stmt);
+  return tags;
+}
+
+QStringList ImageDao::allTags()
+{
+  QStringList tags;
+
+  sqlite3_stmt *stmt = nullptr;
+
+  if(sqlite3_prepare_v2(m_db, "SELECT DISTINCT tag FROM tag", -1, &stmt, nullptr) != SQLITE_OK)
+    goto error;
+
+  while(sqlite3_step(stmt) == SQLITE_ROW) {
+    const char *data = (const char *)sqlite3_column_text(stmt, 0);
+    tags.append(QString::fromUtf8(data));
+  }
+
+  sqlite3_finalize(stmt);
+  return tags;
 error:
   qWarning("SQLite error %d: %s", sqlite3_errcode(m_db), sqlite3_errmsg(m_db));
   sqlite3_finalize(stmt);

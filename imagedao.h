@@ -17,7 +17,9 @@ public:
   virtual ~ImageDao();
 
   Q_INVOKABLE void addTag(const QString &id, const QString &tag);
+  Q_INVOKABLE void removeTag(const QString &id, const QString &tag);
   Q_INVOKABLE QStringList tagsById(const QString &id);
+  Q_INVOKABLE QStringList allTags();
   QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize);
   void insert(const QString &id, const QByteArray &data);
   QVector<QString> loadExistingIds();

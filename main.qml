@@ -200,6 +200,17 @@ ApplicationWindow {
       id: lightbox
 
       property string currentFileId: imageList.get(list.currentIndex).fileId
+      property var allTags: []
+      property var myTags: []
+      property var myUnusedTags: []
+
+      function reloadTags() {
+        allTags = ImageDao.allTags()
+        myTags = ImageDao.tagsById(currentFileId)
+        myUnusedTags = allTags.filter(function(v) { return myTags.indexOf(v) === -1; });
+      }
+
+      onCurrentFileIdChanged: reloadTags()
 
       parent: Overlay.overlay
       anchors.centerIn: Overlay.overlay
@@ -238,26 +249,47 @@ ApplicationWindow {
         }
 
         Flow {
+          anchors.fill: parent
           x: 10
           y: 10
-          spacing: 10
+          spacing: 4
 
           Repeater {
             id: tagList
-            model: ImageDao.tagsById(lightbox.currentFileId)
-            Label {
-              background: Rectangle {
-              }
+            model: lightbox.myTags
+            Tag {
               text: modelData
+              active: true
+              onClicked: {
+                ImageDao.removeTag(lightbox.currentFileId, text)
+                lightbox.reloadTags()
+              }
             }
           }
+
+          Repeater {
+            id: allTagList
+            model: lightbox.myUnusedTags
+            Tag {
+              text: modelData
+              active: false
+
+              onClicked: {
+                ImageDao.addTag(lightbox.currentFileId, text)
+                lightbox.reloadTags()
+              }
+            }
+          }
+
 
           TextField {
             focus: true
             onEditingFinished: {
-              ImageDao.addTag(currentFileId, text)
-              text = ''
-              tagList.model = ImageDao.tagsById(lightbox.currentFileId)
+              if(text.trim() !== '') {
+                ImageDao.addTag(currentFileId, text)
+                lightbox.reloadTags()
+                text = ''
+              }
             }
           }
         }
