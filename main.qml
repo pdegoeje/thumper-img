@@ -22,6 +22,7 @@ ApplicationWindow {
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
+  property alias autoTagging: autoTagCheckbox.checked
 
   color: '#333'
 
@@ -59,7 +60,7 @@ ApplicationWindow {
       var fileName = urlFileName(url)
       console.log("File saved", url)
       var regex = /^([a-z-]+)[0-9]*\.(\w+)$/
-      if(regex.test(fileName)) {
+      if(autoTagging && regex.test(fileName)) {
         var result = fileName.match(regex)
 
         var basename = result[1]
@@ -97,76 +98,81 @@ ApplicationWindow {
 
   header: ToolBar {
     id: toolbar
-    ColumnLayout {
-      RowLayout {
+    Flow {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      spacing: 4
 
-        Label {
-          text: "Path"
-        }
+      Label {
+        height: 40
+        verticalAlignment: Text.AlignVCenter
+        text: "Search"
+      }
 
-        TextField {
-          id: pathPrefixField
-          text: "./"
-          selectByMouse: true
-        }
-
-        ComboBox {
-          model: sizeModel
-          displayText: "Columns: %1".arg(currentText)
-          currentIndex: sizeModel.indexOf(imagesPerRow)
-          onActivated: {
-            imagesPerRow = currentText
+      TextField {
+        selectByMouse: true
+        onAccepted: {
+          var input = text.trim()
+          if(input !== '') {
+            searchTagsModel = input.split(" ")
+          } else {
+            searchTagsModel = []
           }
-        }
 
-        ComboBox {
-          model: renderModel
-          displayText: "Render: %1px".arg(currentText)
-          currentIndex: renderModel.indexOf(actualSize)
-          onActivated: {
-            actualSize = currentText
-          }
-        }
-
-        ComboBox {
-          model: aspectRatioModel
-          displayText: "Aspect: %1".arg(currentText)
-          currentIndex: aspectRatioModel.indexOf(aspectRatio)
-          onActivated: {
-            aspectRatio = currentText
-          }
-        }
-
-        CheckBox {
-          text: "Crop"
-          checked: true
-          onClicked: {
-            cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
-          }
-        }
-
-        Item {
-          Layout.fillWidth: true
+          console.log(searchTagsModel)
         }
       }
 
-      RowLayout {
-        Label {
-          text: "Search"
+      ComboBox {
+        model: sizeModel
+        displayText: "Columns: %1".arg(currentText)
+        currentIndex: sizeModel.indexOf(imagesPerRow)
+        onActivated: {
+          imagesPerRow = currentText
         }
+      }
 
-        TextField {
-          onAccepted: {
-            var input = text.trim()
-            if(input !== '') {
-              searchTagsModel = input.split(" ")
-            } else {
-              searchTagsModel = []
-            }
-
-            console.log(searchTagsModel)
-          }
+      ComboBox {
+        model: renderModel
+        displayText: "Render: %1px".arg(currentText)
+        currentIndex: renderModel.indexOf(actualSize)
+        onActivated: {
+          actualSize = currentText
         }
+      }
+
+      ComboBox {
+        model: aspectRatioModel
+        displayText: "Aspect: %1".arg(currentText)
+        currentIndex: aspectRatioModel.indexOf(aspectRatio)
+        onActivated: {
+          aspectRatio = currentText
+        }
+      }
+
+      CheckBox {
+        text: "Crop"
+        checked: true
+        onClicked: {
+          cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+        }
+      }
+      CheckBox {
+        id: autoTagCheckbox
+        text: "Autotag"
+      }
+
+
+      Label {
+        height: 40
+        verticalAlignment: Text.AlignVCenter
+        text: "Export path"
+      }
+
+      TextField {
+        id: pathPrefixField
+        text: "./"
+        selectByMouse: true
       }
     }
   }
@@ -367,6 +373,8 @@ ApplicationWindow {
           opacity: (selectionModel.length > 0 && !selected) ? 0.4 : 1
 
           CheckBox {
+            visible: toolbar.visible
+            id: theCheck
             focusPolicy: Qt.NoFocus
             checked: selected
             onClicked: {
@@ -378,10 +386,26 @@ ApplicationWindow {
           }
 
           TapHandler {
+            acceptedModifiers: Qt.AltModifier
             onTapped: {
-              list.currentIndex = index
               offscreen.fileId = fileId
               offscreen.source = view.source
+            }
+          }
+
+          TapHandler {
+            acceptedModifiers: Qt.NoModifier
+            onTapped: {
+              list.currentIndex = index
+              lightboxLoader.active = true
+            }
+          }
+
+          TapHandler {
+            acceptedModifiers: Qt.ControlModifier
+            onTapped: {
+              selected = !selected
+              rebuildSelectionModel()
             }
           }
         }

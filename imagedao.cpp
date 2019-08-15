@@ -17,7 +17,7 @@ ImageDao::ImageDao(QObject *parent) : QObject(parent)
 
   char *error = nullptr;
 
-  if(sqlite3_exec(m_db, "CREATE TABLE IF NOT EXISTS store (id TEXT PRIMARY KEY, image BLOB)", nullptr, nullptr, &error) != SQLITE_OK)
+  if(sqlite3_exec(m_db, "CREATE TABLE IF NOT EXISTS store (id TEXT PRIMARY KEY, date INTEGER, image BLOB)", nullptr, nullptr, &error) != SQLITE_OK)
     goto error;
 
   if(sqlite3_exec(m_db, "CREATE TABLE IF NOT EXISTS tag (id TEXT, tag TEXT, PRIMARY KEY (id, tag))", nullptr, nullptr, &error) != SQLITE_OK)
@@ -199,7 +199,7 @@ void ImageDao::insert(const QString &id, const QByteArray &data)
 {
   sqlite3_stmt *stmt = nullptr;
 
-  if(sqlite3_prepare_v2(m_db, "INSERT OR IGNORE INTO store (id, image) VALUES (?1, ?2)", -1, &stmt, nullptr) != SQLITE_OK)
+  if(sqlite3_prepare_v2(m_db, "INSERT OR IGNORE INTO store (id, date, image) VALUES (?1, datetime(), ?2)", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
   if(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT) != SQLITE_OK)
@@ -225,7 +225,7 @@ QStringList ImageDao::allIds()
 
   sqlite3_stmt *stmt = nullptr;
 
-  if(sqlite3_prepare_v2(m_db, "SELECT id FROM store", -1, &stmt, nullptr) != SQLITE_OK)
+  if(sqlite3_prepare_v2(m_db, "SELECT id FROM store ORDER BY date", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
   while(sqlite3_step(stmt) == SQLITE_ROW) {
@@ -249,7 +249,7 @@ QStringList ImageDao::idsByTags(const QStringList &tags)
   createTemporaryTable(QStringLiteral("taglist"), tags);
 
   sqlite3_stmt *stmt = nullptr;
-  if(sqlite3_prepare_v2(m_db, "SELECT id, count(*) as count FROM tag WHERE tag IN (SELECT item FROM taglist) GROUP BY id HAVING count = ?1", -1, &stmt, nullptr) != SQLITE_OK)
+  if(sqlite3_prepare_v2(m_db, "SELECT tag.id, count(*) as count FROM tag LEFT JOIN store ON (tag.id = store.id) WHERE tag IN (SELECT item FROM taglist) GROUP BY tag.id HAVING count = ?1 ORDER BY date", -1, &stmt, nullptr) != SQLITE_OK)
     goto error;
 
   if(sqlite3_bind_int(stmt, 1, tags.length()) != SQLITE_OK)
