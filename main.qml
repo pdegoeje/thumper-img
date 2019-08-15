@@ -9,7 +9,7 @@ ApplicationWindow {
   visible: true
   width: 640
   height: 480
-  title: "Thumper 1.1.0"
+  title: "Thumper 1.2.0"
 
   property string pathPrefix: pathPrefixField.text
   property int imagesPerRow: 6
@@ -23,8 +23,6 @@ ApplicationWindow {
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property alias autoTagging: autoTagCheckbox.checked
-
-  color: '#333'
 
   ListModel {
     id: imageList

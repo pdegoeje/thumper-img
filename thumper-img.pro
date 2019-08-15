@@ -13,10 +13,10 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-  imagedao.cpp \
-        main.cpp \
+    imagedao.cpp \
+    main.cpp \
     imageprocessor.cpp \
-  sqlite3.c \
+    sqlite3.c \
     thumperimageprovider.cpp
 
 RESOURCES += qml.qrc
@@ -38,3 +38,4 @@ HEADERS += \
     sqlite3.h \
     thumperimageprovider.h
 
+RC_ICONS = eye.ico
