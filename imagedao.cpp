@@ -175,6 +175,12 @@ QImage ImageDao::requestImage(const QString &id, QSize *size, const QSize &reque
       newSize.setHeight(requestedSize.height());
     }
 
+    if(newSize.height() < 1)
+      newSize.setHeight(1);
+
+    if(newSize.width() < 1)
+      newSize.setWidth(1);
+
     reader.setScaledSize(newSize);
 
 //    qInfo("Loading image size: %dx%d scaled %dx%d", requestedSize.width(), requestedSize.height(), newSize.width(), newSize.height());

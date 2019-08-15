@@ -18,7 +18,7 @@ ApplicationWindow {
   property int spacing: 8
   property int actualSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20]
+  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20, 30, 40]
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
@@ -173,6 +173,14 @@ ApplicationWindow {
         id: pathPrefixField
         text: "./"
         selectByMouse: true
+      }
+
+      CheckBox {
+        text: "Padding"
+        checked: root.spacing != 0
+        onClicked: {
+          root.spacing = checked ? 8 : 0
+        }
       }
     }
   }
@@ -370,7 +378,11 @@ ApplicationWindow {
           sourceSize.height: height
           sourceSize.width: width
 
-          opacity: (selectionModel.length > 0 && !selected) ? 0.4 : 1
+          opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !selected) ? 0.4 : 1) : 0
+
+          Behavior on opacity {
+            NumberAnimation { duration: 100 }
+          }
 
           CheckBox {
             visible: toolbar.visible
@@ -396,6 +408,7 @@ ApplicationWindow {
           TapHandler {
             acceptedModifiers: Qt.NoModifier
             onTapped: {
+              list.forceActiveFocus()
               list.currentIndex = index
               lightboxLoader.active = true
             }
@@ -456,11 +469,17 @@ ApplicationWindow {
           sourceSize.width: root.width - 40
           sourceSize.height: root.height - 40
 
+          opacity: (status == Image.Ready) ? 1 : 0
+
           smooth: true
           width: sourceSize.width
           height: sourceSize.height
           fillMode: Image.PreserveAspectFit
           source: imageList.get(list.currentIndex).url
+
+          Behavior on opacity {
+            NumberAnimation { duration: 100 }
+          }
         }
       }
     }
