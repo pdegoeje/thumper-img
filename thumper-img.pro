@@ -37,3 +37,4 @@ HEADERS += \
     imageprocessor.h \
     sqlite3.h \
     thumperimageprovider.h
+

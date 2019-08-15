@@ -18,7 +18,7 @@ ApplicationWindow {
   property int spacing: 8
   property int actualSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20, 30, 40]
+  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
@@ -98,14 +98,14 @@ ApplicationWindow {
 
   header: ToolBar {
     id: toolbar
-    Flow {
+    leftPadding: 10
+    rightPadding: 10
+    RowLayout {
       anchors.left: parent.left
       anchors.right: parent.right
-      spacing: 4
+      spacing: 8
 
       Label {
-        height: 40
-        verticalAlignment: Text.AlignVCenter
         text: "Search"
       }
 
@@ -124,8 +124,9 @@ ApplicationWindow {
       }
 
       ComboBox {
+        Layout.preferredWidth: 150
         model: sizeModel
-        displayText: "Columns: %1".arg(currentText)
+        displayText: "%1 Columns".arg(currentText)
         currentIndex: sizeModel.indexOf(imagesPerRow)
         onActivated: {
           imagesPerRow = currentText
@@ -133,8 +134,9 @@ ApplicationWindow {
       }
 
       ComboBox {
+        Layout.preferredWidth: 150
         model: renderModel
-        displayText: "Render: %1px".arg(currentText)
+        displayText: "Export %1px".arg(currentText)
         currentIndex: renderModel.indexOf(actualSize)
         onActivated: {
           actualSize = currentText
@@ -142,6 +144,7 @@ ApplicationWindow {
       }
 
       ComboBox {
+        Layout.preferredWidth: 150
         model: aspectRatioModel
         displayText: "Aspect: %1".arg(currentText)
         currentIndex: aspectRatioModel.indexOf(aspectRatio)
@@ -162,10 +165,7 @@ ApplicationWindow {
         text: "Autotag"
       }
 
-
       Label {
-        height: 40
-        verticalAlignment: Text.AlignVCenter
         text: "Export path"
       }
 
@@ -174,83 +174,7 @@ ApplicationWindow {
         text: "./"
         selectByMouse: true
       }
-
-      CheckBox {
-        text: "Padding"
-        checked: root.spacing != 0
-        onClicked: {
-          root.spacing = checked ? 8 : 0
-        }
-      }
-    }
-  }
-
-  footer: Rectangle {
-    visible: toolbar.visible
-    height: myFlow.implicitHeight
-
-    color: 'transparent'
-
-    Flow {
-      padding: 4
-
-      id: myFlow
-      anchors.left: parent.left
-      anchors.right: parent.right
-      spacing: 4
-      Label {
-        padding: 4
-        background: Rectangle {
-          color: '#cc000000'
-        }
-        color: 'white'
-
-        text: "Selected %1 images".arg(selectionModel.length)
-      }
-
-      Repeater {
-        model: selectionTagCount
-        Tag {
-          property string tag: modelData[0]
-          property int count: modelData[1]
-          backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
-          text: tag + (count > 1 ? " x" + count : "")
-
-          onClicked: {
-            if(count == selectionModel.length) {
-              ImageDao.removeTagFromMultipleIds(selectionModel, tag)
-              rebuildSelectionModel()
-            } else {
-              ImageDao.addTagToMultipleIds(selectionModel, tag)
-              rebuildSelectionModel()
-            }
-          }
-        }
-      }
-
-      Repeater {
-        model: allTagsCount
-        Tag {
-          property string tag: modelData[0]
-          property int count: modelData[1]
-
-          active: false
-          text: tag + (count > 1 ? " x" + count : "")
-
-          onClicked: {
-            ImageDao.addTagToMultipleIds(selectionModel, tag)
-            rebuildSelectionModel()
-          }
-        }
-      }
-
-      Tag {
-        text: 'Add Tag'
-        backgroundColor: 'blue'
-        onClicked: {
-          addTagPopup.open()
-        }
-      }
+      Item { Layout.fillWidth: true }
     }
   }
 
@@ -317,6 +241,7 @@ ApplicationWindow {
       y: list.currentItem ? list.currentItem.y - list.pad : 0
     }
   }
+
   Control {
     focusPolicy: Qt.StrongFocus
     anchors.fill: parent
@@ -426,6 +351,72 @@ ApplicationWindow {
     }
   }
 
+  Flow {
+    visible: toolbar.visible && selectionModel.length > 0
+
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+
+    padding: 4
+
+    id: myFlow
+    spacing: 4
+    Label {
+      padding: 4
+      background: Rectangle {
+        color: '#cc000000'
+      }
+      color: 'white'
+
+      text: "Selected %1 images".arg(selectionModel.length)
+    }
+
+    Repeater {
+      model: selectionTagCount
+      Tag {
+        property string tag: modelData[0]
+        property int count: modelData[1]
+        backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
+        text: tag + (count > 1 ? " x" + count : "")
+
+        onClicked: {
+          if(count == selectionModel.length) {
+            ImageDao.removeTagFromMultipleIds(selectionModel, tag)
+            rebuildSelectionModel()
+          } else {
+            ImageDao.addTagToMultipleIds(selectionModel, tag)
+            rebuildSelectionModel()
+          }
+        }
+      }
+    }
+
+    Repeater {
+      model: allTagsCount
+      Tag {
+        property string tag: modelData[0]
+        property int count: modelData[1]
+
+        active: false
+        text: tag + (count > 1 ? " x" + count : "")
+
+        onClicked: {
+          ImageDao.addTagToMultipleIds(selectionModel, tag)
+          rebuildSelectionModel()
+        }
+      }
+    }
+
+    Tag {
+      text: 'Add Tag'
+      backgroundColor: 'blue'
+      onClicked: {
+        addTagPopup.open()
+      }
+    }
+  }
+
   Loader {
     id: lightboxLoader
     active: false
@@ -445,7 +436,8 @@ ApplicationWindow {
       onClosed: lightboxLoader.active = false
 
       Overlay.modeless: Rectangle {
-        color:"#CC000000"
+        color: '#99101010'
+        Behavior on opacity { NumberAnimation { duration: 150 } }
       }
 
       background: Item {
