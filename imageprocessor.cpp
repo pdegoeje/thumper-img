@@ -41,16 +41,6 @@ void ImageProcessor::download(const QUrl &url) {
 #endif
 }
 
-void ImageProcessor::loadExisting()
-{
-  ImageDao *tip = ImageDao::instance();
-
-  auto idList = tip->loadExistingIds();
-  for(const auto &id : idList) {
-    emit imageReady(id);
-  }
-}
-
 bool ImageProcessor::saveToDisk(QIODevice *data)
 {
   QByteArray bytes = data->readAll();

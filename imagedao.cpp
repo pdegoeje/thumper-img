@@ -219,9 +219,9 @@ error:
   sqlite3_finalize(stmt);
 }
 
-QVector<QString> ImageDao::loadExistingIds()
+QStringList ImageDao::loadExistingIds()
 {
-  QVector<QString> ids;
+  QStringList ids;
 
   sqlite3_stmt *stmt = nullptr;
 

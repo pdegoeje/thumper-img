@@ -33,12 +33,14 @@ ApplicationWindow {
     id: processor
 
     onImageReady: {
-      console.log("Image ready: " + fileId)
       imageList.append({ url: 'image://thumper/' + fileId, 'fileId': fileId })
     }
+  }
 
-    Component.onCompleted: {
-      loadExisting()
+  Component.onCompleted: {
+    var ids = ImageDao.loadExistingIds()
+    for(var i in ids) {
+      processor.imageReady(ids[i])
     }
   }
 

@@ -17,7 +17,6 @@ public:
 
   Q_INVOKABLE void setClipBoard(const QString &data);
   Q_INVOKABLE void download(const QUrl &url);
-  Q_INVOKABLE void loadExisting();
 signals:
   void imageReady(const QString &fileId);
 public slots:

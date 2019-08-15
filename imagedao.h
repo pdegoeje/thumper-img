@@ -22,7 +22,7 @@ public:
   Q_INVOKABLE QStringList allTags();
   QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize);
   void insert(const QString &id, const QByteArray &data);
-  QVector<QString> loadExistingIds();
+  Q_INVOKABLE QStringList loadExistingIds();
 
   static ImageDao *instance();
 signals:
