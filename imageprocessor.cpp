@@ -41,7 +41,12 @@ void ImageProcessor::download(const QUrl &url) {
 #endif
 }
 
-bool ImageProcessor::saveToDisk(QIODevice *data)
+QString ImageProcessor::urlFileName(const QUrl &url)
+{
+  return url.fileName();
+}
+
+bool ImageProcessor::saveToDisk(QNetworkReply *data)
 {
   QByteArray bytes = data->readAll();
   QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
@@ -50,7 +55,7 @@ bool ImageProcessor::saveToDisk(QIODevice *data)
   ImageDao *tip = ImageDao::instance();
 
   tip->insert(key, bytes);
-  emit imageReady(key);
+  emit imageReady(key, data->url());
 
   return true;
 }

@@ -21,7 +21,7 @@ ApplicationWindow {
   property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 20]
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
-  property var aspectRatioModel: [0.5, 0.75, 1.0, 1.5, 2.0]
+  property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
 
   color: '#333'
 
@@ -46,14 +46,36 @@ ApplicationWindow {
     allTagsCount = ImageDao.allTagsCount()
   }
 
+  function displayImage(fileId) {
+    imageList.append({ 'url': 'image://thumper/' + fileId,
+                       'fileId': fileId,
+                       'selected' : false
+                     })
+  }
+
   ImageProcessor {
     id: processor
-
     onImageReady: {
-      imageList.append({ 'url': 'image://thumper/' + fileId,
-                         'fileId': fileId,
-                         'selected' : false
-                       })
+      var fileName = urlFileName(url)
+      console.log("File saved", url)
+      var regex = /^([a-z-]+)[0-9]*\.(\w+)$/
+      if(regex.test(fileName)) {
+        var result = fileName.match(regex)
+
+        var basename = result[1]
+        var extension = result[2]
+
+        var word = /[a-z]+/g
+
+        var foundTags = basename.match(word)
+
+        console.log("Tags found", foundTags)
+        for(var i in foundTags) {
+          ImageDao.addTag(fileId, foundTags[i])
+        }
+      }
+
+      displayImage(fileId)
     }
   }
 
@@ -69,83 +91,83 @@ ApplicationWindow {
     }
     imageList.clear()
     for(var i in ids) {
-      processor.imageReady(ids[i])
+      displayImage(ids[i])
     }
   }
 
   header: ToolBar {
     id: toolbar
     ColumnLayout {
-    RowLayout {
+      RowLayout {
 
-      Label {
-        text: "Path"
-      }
-
-      TextField {
-        id: pathPrefixField
-        text: "./"
-        selectByMouse: true
-      }
-
-      ComboBox {
-        model: sizeModel
-        displayText: "Width: %1".arg(currentText)
-        currentIndex: sizeModel.indexOf(imagesPerRow)
-        onActivated: {
-          imagesPerRow = currentText
+        Label {
+          text: "Path"
         }
-      }
 
-      ComboBox {
-        model: renderModel
-        displayText: "Render: %1px".arg(currentText)
-        currentIndex: renderModel.indexOf(actualSize)
-        onActivated: {
-          actualSize = currentText
+        TextField {
+          id: pathPrefixField
+          text: "./"
+          selectByMouse: true
         }
-      }
 
-      ComboBox {
-        model: aspectRatioModel
-        displayText: "Aspect: %1".arg(currentText)
-        currentIndex: aspectRatioModel.indexOf(aspectRatio)
-        onActivated: {
-          aspectRatio = currentText
-        }
-      }
-
-      CheckBox {
-        text: "Crop"
-        checked: true
-        onClicked: {
-          cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
-        }
-      }
-
-      Item {
-        Layout.fillWidth: true
-      }
-    }
-
-    RowLayout {
-      Label {
-        text: "Search"
-      }
-
-      TextField {
-        onAccepted: {
-          var input = text.trim()
-          if(input !== '') {
-            searchTagsModel = input.split(" ")
-          } else {
-            searchTagsModel = []
+        ComboBox {
+          model: sizeModel
+          displayText: "Columns: %1".arg(currentText)
+          currentIndex: sizeModel.indexOf(imagesPerRow)
+          onActivated: {
+            imagesPerRow = currentText
           }
+        }
 
-          console.log(searchTagsModel)
+        ComboBox {
+          model: renderModel
+          displayText: "Render: %1px".arg(currentText)
+          currentIndex: renderModel.indexOf(actualSize)
+          onActivated: {
+            actualSize = currentText
+          }
+        }
+
+        ComboBox {
+          model: aspectRatioModel
+          displayText: "Aspect: %1".arg(currentText)
+          currentIndex: aspectRatioModel.indexOf(aspectRatio)
+          onActivated: {
+            aspectRatio = currentText
+          }
+        }
+
+        CheckBox {
+          text: "Crop"
+          checked: true
+          onClicked: {
+            cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+          }
+        }
+
+        Item {
+          Layout.fillWidth: true
         }
       }
-    }
+
+      RowLayout {
+        Label {
+          text: "Search"
+        }
+
+        TextField {
+          onAccepted: {
+            var input = text.trim()
+            if(input !== '') {
+              searchTagsModel = input.split(" ")
+            } else {
+              searchTagsModel = []
+            }
+
+            console.log(searchTagsModel)
+          }
+        }
+      }
     }
   }
 
