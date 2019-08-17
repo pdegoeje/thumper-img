@@ -7,8 +7,8 @@ import thumper 1.0
 ApplicationWindow {
   id: root
   visible: true
-  width: 640
-  height: 480
+  width: 1280
+  height: 720
   title: "Thumper 1.2.0"
 
   property string pathPrefix: pathPrefixField.text
@@ -45,11 +45,17 @@ ApplicationWindow {
     allTagsCount = ImageDao.allTagsCount()
   }
 
-  function displayImage(fileId) {
+  function displayImage(fileId, selected) {
     imageList.append({ 'url': 'image://thumper/' + fileId,
                        'fileId': fileId,
-                       'selected' : false
+                       'selected' : selected
                      })
+  }
+
+  Timer {
+    id: selectNewImages
+    interval: 50
+    onTriggered: rebuildSelectionModel()
   }
 
   ImageProcessor {
@@ -57,14 +63,14 @@ ApplicationWindow {
     onImageReady: {
       var fileName = urlFileName(url)
       console.log("File saved", url)
-      var regex = /^([a-z-]+)[0-9]*\.(\w+)$/
+      var regex = /^([a-zA-Z-_]+)[0-9]*\.(\w+)$/
       if(autoTagging && regex.test(fileName)) {
         var result = fileName.match(regex)
 
         var basename = result[1]
         var extension = result[2]
 
-        var word = /[a-z]+/g
+        var word = /[a-zA-Z]+/g
 
         var foundTags = basename.match(word)
 
@@ -74,7 +80,8 @@ ApplicationWindow {
         }
       }
 
-      displayImage(fileId)
+      displayImage(fileId, true)
+      selectNewImages.start()
     }
   }
 
@@ -90,7 +97,7 @@ ApplicationWindow {
     }
     imageList.clear()
     for(var i in ids) {
-      displayImage(ids[i])
+      displayImage(ids[i], false)
     }
   }
 
@@ -103,11 +110,9 @@ ApplicationWindow {
       anchors.right: parent.right
       spacing: 8
 
-      Label {
-        text: "Search"
-      }
-
       TextField {
+        Layout.preferredWidth: 200
+        placeholderText: "Search"
         selectByMouse: true
         onAccepted: {
           var input = text.trim()
@@ -128,16 +133,6 @@ ApplicationWindow {
         currentIndex: sizeModel.indexOf(imagesPerRow)
         onActivated: {
           imagesPerRow = currentText
-        }
-      }
-
-      ComboBox {
-        Layout.preferredWidth: 150
-        model: renderModel
-        displayText: "Export %1px".arg(currentText)
-        currentIndex: renderModel.indexOf(actualSize)
-        onActivated: {
-          actualSize = currentText
         }
       }
 
@@ -171,6 +166,15 @@ ApplicationWindow {
         id: pathPrefixField
         text: "./"
         selectByMouse: true
+      }
+      ComboBox {
+        Layout.preferredWidth: 150
+        model: renderModel
+        displayText: "Export %1px".arg(currentText)
+        currentIndex: renderModel.indexOf(actualSize)
+        onActivated: {
+          actualSize = currentText
+        }
       }
       Item { Layout.fillWidth: true }
     }
