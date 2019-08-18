@@ -25,6 +25,8 @@ ApplicationWindow {
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property alias autoTagging: autoTagCheckbox.checked
 
+  property var fileIdToIndexMap: ({})
+
   ListModel {
     id: imageList
   }
@@ -47,6 +49,7 @@ ApplicationWindow {
   }
 
   function displayImage(fileId, selected) {
+    fileIdToIndexMap[fileId] = imageList.count
     imageList.append({ 'url': 'image://thumper/' + fileId,
                        'fileId': fileId,
                        'selected' : selected
@@ -98,6 +101,7 @@ ApplicationWindow {
     }
 
     imageList.clear()
+    fileIdToIndexMap = ({})
     for(var i in ids) {
       displayImage(ids[i], false)
     }
@@ -356,6 +360,30 @@ ApplicationWindow {
     }
   }
 
+  TagSelection {
+    id: tagSelection
+
+    onEditComplete: {
+      console.log("SUCCESS", selectedTags)
+      var fileIds = ImageDao.idsByTags(selectedTags)
+      for(var i = 0; i < imageList.count; i++) {
+        var imageObj = imageList.get(i)
+        imageObj.selected = false
+      }
+
+      for(i = 0; i < fileIds.length; i++) {
+        var imageListIndex = fileIdToIndexMap[fileIds[i]]
+        if(imageListIndex !== undefined) {
+          console.log(fileIds[i], imageListIndex)
+          imageObj = imageList.get(imageListIndex)
+          imageObj.selected = true
+        }
+      }
+
+      rebuildSelectionModel()
+    }
+  }
+
   footer: ToolBar {
     visible: toolbar.visible
     leftPadding: 10
@@ -393,6 +421,16 @@ ApplicationWindow {
 
       Item {
         Layout.fillWidth: true
+      }
+
+      Button {
+        text: "Select"
+
+
+        onClicked: {
+          var mysel = selectionTagCount.map(function(x) { return x[0]})
+          tagSelection.edit(mysel)
+        }
       }
 
       Tag {
