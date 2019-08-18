@@ -2,6 +2,7 @@ import QtQuick 2.12
 import QtQuick.Window 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.3
+import QtQuick.Controls.Material 2.12
 import thumper 1.0
 
 ApplicationWindow {
@@ -95,10 +96,12 @@ ApplicationWindow {
       console.log("All Ids")
       ids = ImageDao.allIds()
     }
+
     imageList.clear()
     for(var i in ids) {
       displayImage(ids[i], false)
     }
+    rebuildSelectionModel()
   }
 
   header: ToolBar {
@@ -353,68 +356,67 @@ ApplicationWindow {
     }
   }
 
-  Flow {
-    visible: toolbar.visible && selectionModel.length > 0
+  footer: ToolBar {
+    visible: toolbar.visible
+    leftPadding: 10
+    rightPadding: 10
+    RowLayout {
+      anchors.left: parent.left
+      anchors.right: parent.right
 
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
 
-    padding: 4
-
-    id: myFlow
-    spacing: 4
-    Label {
-      padding: 4
-      background: Rectangle {
-        color: '#cc000000'
+      id: myFlow
+      spacing: 4
+      Label {
+        text: "Selected %1/%2".arg(selectionModel.length).arg(imageList.count)
       }
-      color: 'white'
 
-      text: "Selected %1 images".arg(selectionModel.length)
-    }
+      Repeater {
+        model: selectionTagCount
+        Tag {
+          property string tag: modelData[0]
+          property int count: modelData[1]
+          backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
+          text: tag + (count > 1 ? " (%1)".arg(count) : "")
 
-    Repeater {
-      model: selectionTagCount
+          onClicked: {
+            if(count == selectionModel.length) {
+              ImageDao.removeTagFromMultipleIds(selectionModel, tag)
+              rebuildSelectionModel()
+            } else {
+              ImageDao.addTagToMultipleIds(selectionModel, tag)
+              rebuildSelectionModel()
+            }
+          }
+        }
+      }
+
+      Item {
+        Layout.fillWidth: true
+      }
+
       Tag {
-        property string tag: modelData[0]
-        property int count: modelData[1]
-        backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
-        text: tag + (count > 1 ? " x" + count : "")
-
+        text: 'Add new tag'
+        backgroundColor: 'teal'
         onClicked: {
-          if(count == selectionModel.length) {
-            ImageDao.removeTagFromMultipleIds(selectionModel, tag)
-            rebuildSelectionModel()
-          } else {
+          addTagPopup.open()
+        }
+      }
+
+      Repeater {
+        model: allTagsCount
+        Tag {
+          property string tag: modelData[0]
+          property int count: modelData[1]
+
+          backgroundColor: 'blue'
+          text: tag + (count > 1 ? " (%1)".arg(count) : "")
+
+          onClicked: {
             ImageDao.addTagToMultipleIds(selectionModel, tag)
             rebuildSelectionModel()
           }
         }
-      }
-    }
-
-    Repeater {
-      model: allTagsCount
-      Tag {
-        property string tag: modelData[0]
-        property int count: modelData[1]
-
-        active: false
-        text: tag + (count > 1 ? " x" + count : "")
-
-        onClicked: {
-          ImageDao.addTagToMultipleIds(selectionModel, tag)
-          rebuildSelectionModel()
-        }
-      }
-    }
-
-    Tag {
-      text: 'Add Tag'
-      backgroundColor: 'blue'
-      onClicked: {
-        addTagPopup.open()
       }
     }
   }
@@ -531,6 +533,18 @@ ApplicationWindow {
       console.log("Select all")
       for(var i = 0; i < imageList.count; i++) {
         imageList.setProperty(i, 'selected', true)
+      }
+      rebuildSelectionModel()
+    }
+  }
+
+  Shortcut {
+    sequence: "Ctrl+I"
+    onActivated: {
+      console.log("Invert Selection")
+      for(var i = 0; i < imageList.count; i++) {
+        var m = imageList.get(i)
+        m.selected = !m.selected
       }
       rebuildSelectionModel()
     }
