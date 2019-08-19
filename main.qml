@@ -10,7 +10,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.2.0"
+  title: "Thumper 1.3.0"
 
   property string pathPrefix: pathPrefixField.text
   property int imagesPerRow: 6
@@ -25,46 +25,56 @@ ApplicationWindow {
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property alias autoTagging: autoTagCheckbox.checked
 
-  property var fileIdToIndexMap: ({})
-
+  property var viewIdToIndexMap: ({})
   ListModel {
-    id: imageList
+    id: viewModel
   }
+  property var viewModelSimpleList: []
 
   property var selectionModel: []
+
+
   property var selectionTagCount: []
   property var allTagsCount: []
 
   property var searchTagsModel: []
 
+  onSelectionModelChanged: rebuildTagModels()
+
+  function rebuildTagModels() {
+    selectionTagCount = ImageDao.tagCount(selectionModel)
+    allTagsCount = ImageDao.tagCount(viewModelSimpleList)
+  }
+
   function rebuildSelectionModel() {
     var newModel = []
-    for(var i = 0; i < imageList.count; i++) {
-      if(imageList.get(i).selected)
-        newModel.push(imageList.get(i).fileId)
+    for(var i = 0; i < viewModel.count; i++) {
+      var ref = viewModel.get(i).ref
+      if(ref.selected) {
+        newModel.push(ref)
+      }
     }
     selectionModel = newModel
-    selectionTagCount = ImageDao.tagsByMultipleIds(selectionModel)
-    allTagsCount = ImageDao.allTagsCount()
   }
 
-  function displayImage(fileId, selected) {
-    fileIdToIndexMap[fileId] = imageList.count
-    imageList.append({ 'url': 'image://thumper/' + fileId,
-                       'fileId': fileId,
-                       'selected' : selected
-                     })
+  function viewClear() {
+    console.log("viewClear")
+    viewIdToIndexMap = ({})
+    viewModel.clear()
+    viewModelSimpleList = []
   }
 
-  Timer {
-    id: selectNewImages
-    interval: 50
-    onTriggered: rebuildSelectionModel()
+  function viewAppend(ref) {
+    console.log("viewAppend", ref, ref.fileId, ref.selected, ref.tags)
+    viewIdToIndexMap[ref.fileId] = viewModel.count
+    viewModel.append({ 'ref' : ref })
+    viewModelSimpleList.push(ref)
   }
 
   ImageProcessor {
     id: processor
     onImageReady: {
+      var ref = ImageDao.findHash(hash)
       var fileName = urlFileName(url)
       console.log("File saved", url)
       var regex = /^([a-zA-Z-_]+)[0-9]*\.(\w+)$/
@@ -80,30 +90,29 @@ ApplicationWindow {
 
         console.log("Tags found", foundTags)
         for(var i in foundTags) {
-          ImageDao.addTag(fileId, foundTags[i])
+          ImageDao.addTag(ref, foundTags[i])
         }
       }
 
-      displayImage(fileId, true)
-      selectNewImages.start()
+      viewAppend(ref)
     }
   }
 
   onSearchTagsModelChanged: {
     console.log("searchTagsModel changed", searchTagsModel, searchTagsModel.length)
-    var ids
+    var refList
     if(searchTagsModel.length > 0) {
       console.log("Search")
-      ids = ImageDao.idsByTags(searchTagsModel)
+      refList = ImageDao.search(searchTagsModel)
     } else {
       console.log("All Ids")
-      ids = ImageDao.allIds()
-    }
+      refList = ImageDao.all()
+      console.log(refList)
+    }   
 
-    imageList.clear()
-    fileIdToIndexMap = ({})
-    for(var i in ids) {
-      displayImage(ids[i], false)
+    viewClear()
+    for(var i in refList) {
+      viewAppend(refList[i])
     }
     rebuildSelectionModel()
   }
@@ -204,8 +213,13 @@ ApplicationWindow {
         id: tagField
         selectByMouse: true
         onAccepted: {
-          ImageDao.addTagToMultipleIds(selectionModel, text)
-          rebuildSelectionModel()
+          var tag = text.trim()
+          if(tag !== '') {
+            ImageDao.transactionStart()
+            selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
+            rebuildTagModels()
+            ImageDao.transactionEnd()
+          }
           addTagPopup.close()
         }
       }
@@ -268,7 +282,7 @@ ApplicationWindow {
 
       focus: true
 
-      model: imageList
+      model: viewModel
       property int pad: spacing / 2
 
       topMargin: pad
@@ -293,8 +307,11 @@ ApplicationWindow {
       }
 
       delegate: Item {
+        id: item
         width: list.cellWidth
         height: list.cellHeight
+
+        property ImageRef image: ref
 
         Image {
           x: list.pad
@@ -308,11 +325,11 @@ ApplicationWindow {
           cache: true
           mipmap: false
           smooth: true
-          source: url
+          source: "image://thumper/" + item.image.fileId
           sourceSize.height: height
           sourceSize.width: width
 
-          opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !selected) ? 0.4 : 1) : 0
+          opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !item.image.selected) ? 0.4 : 1) : 0
 
           Behavior on opacity {
             NumberAnimation { duration: 100 }
@@ -322,10 +339,10 @@ ApplicationWindow {
             visible: toolbar.visible
             id: theCheck
             focusPolicy: Qt.NoFocus
-            checked: selected
+            checked: item.image.selected
             onClicked: {
-              if(selected != checked) {
-                selected = checked
+              if(item.image.selected != checked) {
+                item.image.selected = checked
                 rebuildSelectionModel()
               }
             }
@@ -351,7 +368,7 @@ ApplicationWindow {
           TapHandler {
             acceptedModifiers: Qt.ControlModifier
             onTapped: {
-              selected = !selected
+              item.image.selected = !item.image.selected
               rebuildSelectionModel()
             }
           }
@@ -396,7 +413,7 @@ ApplicationWindow {
       id: myFlow
       spacing: 4
       Label {
-        text: "Selected %1/%2".arg(selectionModel.length).arg(imageList.count)
+        text: "Selected %1/%2".arg(selectionModel.length).arg(viewModel.count)
       }
 
       Repeater {
@@ -408,13 +425,15 @@ ApplicationWindow {
           text: tag + (count > 1 ? " (%1)".arg(count) : "")
 
           onClicked: {
+            ImageDao.transactionStart()
             if(count == selectionModel.length) {
-              ImageDao.removeTagFromMultipleIds(selectionModel, tag)
-              rebuildSelectionModel()
+              selectionModel.forEach(function(ref) { ImageDao.removeTag(ref, tag) })
+              rebuildTagModels()
             } else {
-              ImageDao.addTagToMultipleIds(selectionModel, tag)
+              selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
               rebuildSelectionModel()
             }
+            ImageDao.transactionEnd()
           }
         }
       }
@@ -451,8 +470,10 @@ ApplicationWindow {
           text: tag + (count > 1 ? " (%1)".arg(count) : "")
 
           onClicked: {
-            ImageDao.addTagToMultipleIds(selectionModel, tag)
+            ImageDao.transactionStart()
+            selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
             rebuildSelectionModel()
+            ImageDao.transactionEnd()
           }
         }
       }
@@ -466,7 +487,7 @@ ApplicationWindow {
     sourceComponent: Popup {
       id: lightbox
 
-      property string currentFileId: imageList.get(list.currentIndex).fileId
+      property ImageRef image: viewModel.get(list.currentIndex).ref
 
       parent: Overlay.overlay
       anchors.centerIn: Overlay.overlay
@@ -509,7 +530,7 @@ ApplicationWindow {
           width: sourceSize.width
           height: sourceSize.height
           fillMode: Image.PreserveAspectFit
-          source: imageList.get(list.currentIndex).url
+          source: "image://thumper/" + lightbox.image.fileId
 
           Behavior on opacity {
             NumberAnimation { duration: 100 }
@@ -557,9 +578,8 @@ ApplicationWindow {
     sequence: "Ctrl+D"
     onActivated: {
       console.log("Deselect")
-      for(var i = 0; i < imageList.count; i++) {
-        //imageList.get(i).selected = false
-        imageList.setProperty(i, 'selected', false)
+      for(var i = 0; i < viewModel.count; i++) {
+        viewModel.get(i).ref.selected = false
       }
       rebuildSelectionModel()
     }
@@ -569,8 +589,8 @@ ApplicationWindow {
     sequence: "Ctrl+A"
     onActivated: {
       console.log("Select all")
-      for(var i = 0; i < imageList.count; i++) {
-        imageList.setProperty(i, 'selected', true)
+      for(var i = 0; i < viewModel.count; i++) {
+        viewModel.get(i).ref.selected = true
       }
       rebuildSelectionModel()
     }
@@ -580,9 +600,9 @@ ApplicationWindow {
     sequence: "Ctrl+I"
     onActivated: {
       console.log("Invert Selection")
-      for(var i = 0; i < imageList.count; i++) {
-        var m = imageList.get(i)
-        m.selected = !m.selected
+      for(var i = 0; i < viewModel.count; i++) {
+        var ref = viewModel.get(i).ref
+        ref.selected = !ref.selected
       }
       rebuildSelectionModel()
     }

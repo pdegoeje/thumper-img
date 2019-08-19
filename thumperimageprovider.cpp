@@ -14,7 +14,7 @@ ThumperImageProvider::~ThumperImageProvider()
 
 QImage ThumperImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
 {
-  return ImageDao::instance()->requestImage(id, size, requestedSize);
+  return ImageDao::instance()->requestImage(id.toLongLong(), size, requestedSize);
 }
 
 ThumperImageProvider *ThumperImageProvider::instance() {

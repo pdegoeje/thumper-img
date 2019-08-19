@@ -11,6 +11,7 @@ int main(int argc, char *argv[])
 
   QGuiApplication app(argc, argv);
 
+  qmlRegisterType<ImageRef>("thumper", 1, 0, "ImageRef");
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
   qmlRegisterSingletonType<ImageDao>("thumper", 1, 0, "ImageDao",
     [](QQmlEngine *, QJSEngine *) { return (QObject *)ImageDao::instance(); });

@@ -3,8 +3,49 @@
 
 #include <QObject>
 #include <QVariantMap>
+#include <QSet>
+
+#include "sqlite3.h"
 
 struct sqlite3;
+
+struct SQLitePreparedStatement {
+  sqlite3_stmt *m_stmt = nullptr;
+
+  void init(sqlite3 *db, const char *statement);
+  void exec(); // step + reset
+  void bind(int param, const QString &text);
+  void bind(int param, qint64 value);
+  void bind(int param, const QByteArray &data);
+  QString resultString(int index);
+  qint64 resultInteger(int index);
+  bool step();
+  void reset();
+  void clear();
+  void destroy();
+
+  ~SQLitePreparedStatement() { destroy(); }
+};
+
+class ImageRef : public QObject {
+  Q_OBJECT
+
+  Q_PROPERTY(qint64 fileId MEMBER m_fileId CONSTANT)
+  Q_PROPERTY(bool selected MEMBER m_selected NOTIFY selectedChanged)
+  Q_PROPERTY(QStringList tags READ tags NOTIFY tagsChanged)
+
+  qint64 m_fileId;
+  bool m_selected;
+  QSet<QString> m_tags;
+public:
+  QStringList tags();
+signals:
+  void selectedChanged();
+  void tagsChanged();
+
+  friend class ImageDao;
+};
+
 
 class ImageDao : public QObject
 {
@@ -13,34 +54,92 @@ class ImageDao : public QObject
   static ImageDao *m_instance;
 
   sqlite3 *m_db = nullptr;
+
+  SQLitePreparedStatement m_ps_insert;
+  SQLitePreparedStatement m_ps_addTag;
+  SQLitePreparedStatement m_ps_removeTag;
+  SQLitePreparedStatement m_ps_tagsById;
+  SQLitePreparedStatement m_ps_idByHash;
+  SQLitePreparedStatement m_ps_search;
+  SQLitePreparedStatement m_ps_all;
+  SQLitePreparedStatement m_ps_imageById;
+  SQLitePreparedStatement m_ps_transStart;
+  SQLitePreparedStatement m_ps_transEnd;
 public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
 
-  Q_INVOKABLE void addTag(const QString &id, const QString &tag);
-  Q_INVOKABLE void removeTag(const QString &id, const QString &tag);
-  Q_INVOKABLE QStringList tagsById(const QString &id);
-  Q_INVOKABLE QStringList allTags();
-  Q_INVOKABLE QStringList allIds();
-  Q_INVOKABLE QStringList idsByTags(const QStringList &tags);
-  Q_INVOKABLE QVariantList tagsByMultipleIds(const QStringList &ids);
-  Q_INVOKABLE void addTagToMultipleIds(const QStringList &ids, const QString &tag);
-  Q_INVOKABLE void removeTagFromMultipleIds(const QStringList &ids, const QString &tag);
-  Q_INVOKABLE QVariantList allTagsCount();
+  Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag) {
+    if(!iref->m_tags.contains(tag)) {
+      iref->m_tags.insert(tag);
+      addTag(iref->m_fileId, tag);
+      emit iref->tagsChanged();
+    }
+  }
 
-  QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize);
-  void insert(const QString &id, const QByteArray &data);
+  Q_INVOKABLE void addTagToSelection(QList<QObject *> selection, const QString &tag);
+
+  Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag) {
+    if(iref->m_tags.contains(tag)) {
+      iref->m_tags.remove(tag);
+      removeTag(iref->m_fileId, tag);
+      emit iref->tagsChanged();
+    }
+  }
+
+  Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs) {
+    QMap<QString, int> result;
+    for(QObject *qobj : irefs) {
+      ImageRef *iref = qobject_cast<ImageRef *>(qobj);
+      if(iref != nullptr) {
+        for(const QString &tag : iref->m_tags) {
+          result[tag]++;
+        }
+      }
+    }
+
+    QVariantList out;
+    auto iter_end = result.constKeyValueEnd();
+    for(auto iter = result.constKeyValueBegin(); iter != iter_end; ++iter) {
+      QVariantList r = { (*iter).first, (*iter).second };
+      out.append(QVariant::fromValue(r));
+    }
+
+    return out;
+  }
+
+
+  Q_INVOKABLE QList<QObject *> searchSubset(const QList<QObject *> &irefs, const QStringList &tags) {
+    QSet<QString> searchTags = QSet<QString>::fromList(tags);
+
+    QList<QObject *> result;
+    for(QObject *irobj : irefs) {
+      ImageRef *ir = qobject_cast<ImageRef *>(irobj);
+      if(ir && ir->m_tags.contains(searchTags)) {
+        result.append(ir);
+      }
+    }
+    return result;
+  }
+
+  Q_INVOKABLE QList<QObject *> search(const QStringList &tags);
+  Q_INVOKABLE QList<QObject *> all();
+  Q_INVOKABLE QStringList tagsById(qint64 id);
+  void addTag(qint64 fileId, const QString &tag);
+  void removeTag(qint64 fileId, const QString &tag);
+  Q_INVOKABLE ImageRef *findHash(const QString &hash);
+
+  Q_INVOKABLE void transactionStart();
+  Q_INVOKABLE void transactionEnd();
+
+  QImage requestImage(qint64 id, QSize *size, const QSize &requestedSize);
+  void insert(const QString &hash, const QByteArray &data);
 
   static ImageDao *instance();
-
 private:
   void createTemporaryTable(const QString &tableName, const QStringList &items);
   void destroyTemporaryTable(const QString &tableName);
-
-  void createSelectionTable(const QStringList &ids);
-  void destroySelectionTable();
 signals:
-
 public slots:
 };
 

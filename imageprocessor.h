@@ -19,7 +19,7 @@ public:
   Q_INVOKABLE void download(const QUrl &url);
   Q_INVOKABLE QString urlFileName(const QUrl &url);
 signals:
-  void imageReady(const QString &fileId, const QUrl &url);
+  void imageReady(const QString &hash, const QUrl &url);
 public slots:
 
 private slots:
