@@ -11,9 +11,9 @@ Popup {
   property var tagList: []
   property var initialSelection: []
 
-  function edit(initialSelection) {
+  function edit(initialSelection, allTagCount) {
     root.initialSelection = initialSelection
-    root.tagList = ImageDao.allTagsCount()
+    root.tagList = allTagCount
     root.open()
   }
 

@@ -382,21 +382,10 @@ ApplicationWindow {
 
     onEditComplete: {
       console.log("SUCCESS", selectedTags)
-      var fileIds = ImageDao.idsByTags(selectedTags)
-      for(var i = 0; i < imageList.count; i++) {
-        var imageObj = imageList.get(i)
-        imageObj.selected = false
-      }
-
-      for(i = 0; i < fileIds.length; i++) {
-        var imageListIndex = fileIdToIndexMap[fileIds[i]]
-        if(imageListIndex !== undefined) {
-          console.log(fileIds[i], imageListIndex)
-          imageObj = imageList.get(imageListIndex)
-          imageObj.selected = true
-        }
-      }
-
+      var result = ImageDao.searchSubset(viewModelSimpleList, selectedTags)
+      console.log(result)
+      viewModelSimpleList.forEach(function(ref) { ref.selected = false })
+      result.forEach(function(ref) { ref.selected = true })
       rebuildSelectionModel()
     }
   }
@@ -448,7 +437,7 @@ ApplicationWindow {
 
         onClicked: {
           var mysel = selectionTagCount.map(function(x) { return x[0]})
-          tagSelection.edit(mysel)
+          tagSelection.edit(mysel, allTagsCount)
         }
       }
 

@@ -69,59 +69,11 @@ public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
 
-  Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag) {
-    if(!iref->m_tags.contains(tag)) {
-      iref->m_tags.insert(tag);
-      addTag(iref->m_fileId, tag);
-      emit iref->tagsChanged();
-    }
-  }
+  Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag);
+  Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag);
 
-  Q_INVOKABLE void addTagToSelection(QList<QObject *> selection, const QString &tag);
-
-  Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag) {
-    if(iref->m_tags.contains(tag)) {
-      iref->m_tags.remove(tag);
-      removeTag(iref->m_fileId, tag);
-      emit iref->tagsChanged();
-    }
-  }
-
-  Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs) {
-    QMap<QString, int> result;
-    for(QObject *qobj : irefs) {
-      ImageRef *iref = qobject_cast<ImageRef *>(qobj);
-      if(iref != nullptr) {
-        for(const QString &tag : iref->m_tags) {
-          result[tag]++;
-        }
-      }
-    }
-
-    QVariantList out;
-    auto iter_end = result.constKeyValueEnd();
-    for(auto iter = result.constKeyValueBegin(); iter != iter_end; ++iter) {
-      QVariantList r = { (*iter).first, (*iter).second };
-      out.append(QVariant::fromValue(r));
-    }
-
-    return out;
-  }
-
-
-  Q_INVOKABLE QList<QObject *> searchSubset(const QList<QObject *> &irefs, const QStringList &tags) {
-    QSet<QString> searchTags = QSet<QString>::fromList(tags);
-
-    QList<QObject *> result;
-    for(QObject *irobj : irefs) {
-      ImageRef *ir = qobject_cast<ImageRef *>(irobj);
-      if(ir && ir->m_tags.contains(searchTags)) {
-        result.append(ir);
-      }
-    }
-    return result;
-  }
-
+  Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
+  Q_INVOKABLE QList<QObject *> searchSubset(const QList<QObject *> &irefs, const QStringList &tags);
   Q_INVOKABLE QList<QObject *> search(const QStringList &tags);
   Q_INVOKABLE QList<QObject *> all();
   Q_INVOKABLE QStringList tagsById(qint64 id);

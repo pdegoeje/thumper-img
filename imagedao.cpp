@@ -100,15 +100,54 @@ ImageDao::~ImageDao()
   sqlite3_close(m_db);
 }
 
-void ImageDao::addTagToSelection(QList<QObject *> selection, const QString &tag) {
-  transactionStart();
-  for(QObject *irobj : selection) {
-    ImageRef *ir = qobject_cast<ImageRef *>(irobj);
-    if(ir != nullptr) {
-      addTag(ir, tag);
+void ImageDao::addTag(ImageRef *iref, const QString &tag) {
+  if(!iref->m_tags.contains(tag)) {
+    iref->m_tags.insert(tag);
+    addTag(iref->m_fileId, tag);
+    emit iref->tagsChanged();
+  }
+}
+
+void ImageDao::removeTag(ImageRef *iref, const QString &tag) {
+  if(iref->m_tags.contains(tag)) {
+    iref->m_tags.remove(tag);
+    removeTag(iref->m_fileId, tag);
+    emit iref->tagsChanged();
+  }
+}
+
+QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
+  QMap<QString, int> result;
+  for(QObject *qobj : irefs) {
+    ImageRef *iref = qobject_cast<ImageRef *>(qobj);
+    if(iref != nullptr) {
+      for(const QString &tag : iref->m_tags) {
+        result[tag]++;
+      }
     }
   }
-  transactionEnd();
+
+  QVariantList out;
+  auto iter_end = result.constKeyValueEnd();
+  for(auto iter = result.constKeyValueBegin(); iter != iter_end; ++iter) {
+    QVariantList r = { (*iter).first, (*iter).second };
+    out.append(QVariant::fromValue(r));
+  }
+
+  return out;
+}
+
+QList<QObject *> ImageDao::searchSubset(const QList<QObject *> &irefs, const QStringList &tags) {
+  QSet<QString> searchTags = QSet<QString>::fromList(tags);
+
+  QList<QObject *> result;
+  for(QObject *irobj : irefs) {
+    ImageRef *ir = qobject_cast<ImageRef *>(irobj);
+    if(ir && ir->m_tags.contains(searchTags)) {
+      result.append(ir);
+    }
+  }
+  return result;
 }
 
 QList<QObject *> ImageDao::search(const QStringList &tags)
