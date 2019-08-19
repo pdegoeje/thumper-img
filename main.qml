@@ -381,12 +381,13 @@ ApplicationWindow {
     id: tagSelection
 
     onEditComplete: {
-      console.log("SUCCESS", selectedTags)
       var result = ImageDao.searchSubset(viewModelSimpleList, selectedTags)
-      console.log(result)
       viewModelSimpleList.forEach(function(ref) { ref.selected = false })
       result.forEach(function(ref) { ref.selected = true })
       rebuildSelectionModel()
+
+      var index = viewIdToIndexMap[result[0].fileId]
+      list.positionViewAtIndex(index, GridView.Center)
     }
   }
 
