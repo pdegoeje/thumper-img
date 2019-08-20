@@ -246,7 +246,7 @@ QStringList ImageDao::tagsById(qint64 id)
   return tags;
 }
 
-QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize)
+QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled)
 {
   QImage result;
 
@@ -262,28 +262,30 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize)
 
   auto byte_array = QByteArray::fromRawData(data, bytes);
 
-  QBuffer buffer(&byte_array);
-  QImageReader reader(&buffer);
+  if(!(*cancelled)) {
+    QBuffer buffer(&byte_array);
+    QImageReader reader(&buffer);
 
-  if(requestedSize.isValid()) {
-    auto actualSize = reader.size();
+    if(requestedSize.isValid()) {
+      auto actualSize = reader.size();
 
-    float scalex = (float)requestedSize.width() / actualSize.width();
-    float scaley = (float)requestedSize.height() / actualSize.height();
+      float scalex = (float)requestedSize.width() / actualSize.width();
+      float scaley = (float)requestedSize.height() / actualSize.height();
 
-    QSize newSize;
-    if(scalex > scaley) {
-      newSize.setWidth(requestedSize.width());
-      newSize.setHeight(actualSize.height() * scalex);
-    } else {
-      newSize.setWidth(actualSize.width() * scaley);
-      newSize.setHeight(requestedSize.height());
+      QSize newSize;
+      if(scalex > scaley) {
+        newSize.setWidth(requestedSize.width());
+        newSize.setHeight(actualSize.height() * scalex);
+      } else {
+        newSize.setWidth(actualSize.width() * scaley);
+        newSize.setHeight(requestedSize.height());
+      }
+
+      reader.setScaledSize(newSize);
     }
 
-    reader.setScaledSize(newSize);
+    result = reader.read();
   }
-
-  result = reader.read();
 
   m_ps_imageById.reset();
   m_ps_imageById.destroy();

@@ -131,7 +131,7 @@ public:
   Q_INVOKABLE void transactionStart();
   Q_INVOKABLE void transactionEnd();
 
-  QImage requestImage(qint64 id, const QSize &requestedSize);
+  QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
   void insert(const QString &hash, const QByteArray &data);
 
   static ImageDao *instance();

@@ -15,7 +15,7 @@ QQuickTextureFactory *AsyncImageResponse::textureFactory() const
 void AsyncImageResponse::run()
 {
   if(!m_cancelled) {
-    m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize);
+    m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize, &m_cancelled);
   }
   emit finished();
 }
