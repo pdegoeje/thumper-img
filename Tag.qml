@@ -8,6 +8,10 @@ import thumper 1.0
 Button {
   id: root
   property color backgroundColor: 'green'
+  property string tag
+  property int count
+
+  text: "%1 (%2)".arg(tag).arg(count)
 
   font.capitalization: Font.MixedCase
 
@@ -16,6 +20,6 @@ Button {
     implicitHeight: root.Material.buttonHeight
     id: bgRect
     radius: 4
-    color: root.visualFocus || root.hovered ? Qt.lighter(backgroundColor) : root.backgroundColor
+    color: (root.visualFocus || root.hovered || root.highlighted) ? Qt.lighter(backgroundColor) : root.backgroundColor
   }
 }

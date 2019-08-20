@@ -5,6 +5,8 @@
 #include <QImageReader>
 #include <QBuffer>
 #include <QThread>
+#include <QElapsedTimer>
+#include <QDebug>
 
 ImageDao *ImageDao::m_instance;
 
@@ -70,17 +72,11 @@ ImageDao::ImageDao(QObject *parent) :
 
   m_ps_insert.init(m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
-  //m_ps_addTagToList.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) SELECT item, ?1 FROM selection");
+  m_ps_allTagCount.init(m_db, "SELECT tag, count(id) FROM tag GROUP BY tag ORDER BY tag");
 
   m_ps_removeTag.init(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
   m_ps_tagsById.init(m_db, "SELECT tag FROM tag WHERE id = ?1");
   m_ps_idByHash.init(m_db, "SELECT id FROM store WHERE hash = ?1");
-  m_ps_search.init(m_db, "SELECT tag.id, group_concat(tag, ' ')"
-                           "FROM tag JOIN store ON (tag.id = store.id) "
-                           "WHERE tag IN (SELECT * FROM search) "
-                           "GROUP BY tag.id "
-                           "HAVING count(tag.id) = (SELECT count(*) FROM search) "
-                           "ORDER BY date DESC");
 
   m_ps_all.init(m_db, "SELECT store.id, group_concat(tag, ' ') "
                       "FROM store LEFT JOIN tag ON (tag.id = store.id) "
@@ -119,6 +115,17 @@ void ImageDao::removeTag(ImageRef *iref, const QString &tag) {
   }
 }
 
+QVariantList ImageDao::allTagCount()
+{
+  QVariantList result;
+  while(m_ps_allTagCount.step()) {
+    QVariantList r = { m_ps_allTagCount.resultString(0), m_ps_allTagCount.resultInteger(1) };
+    result.append(QVariant::fromValue(r));
+  }
+  m_ps_allTagCount.reset();
+  return result;
+}
+
 QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
   QMap<QString, int> result;
   for(QObject *qobj : irefs) {
@@ -140,7 +147,10 @@ QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
   return out;
 }
 
-QList<QObject *> ImageDao::searchSubset(const QList<QObject *> &irefs, const QStringList &tags) {
+QList<QObject *> ImageDao::search(const QList<QObject *> &irefs, const QStringList &tags) {
+  QElapsedTimer timer;
+  timer.start();
+
   QSet<QString> searchTags = QSet<QString>::fromList(tags);
 
   QList<QObject *> result;
@@ -150,30 +160,17 @@ QList<QObject *> ImageDao::searchSubset(const QList<QObject *> &irefs, const QSt
       result.append(ir);
     }
   }
-  return result;
-}
 
-QList<QObject *> ImageDao::search(const QStringList &tags)
-{
-  createTemporaryTable("search", tags);
-
-  QList<QObject *> result;
-
-  while(m_ps_search.step()) {
-    ImageRef *ir = new ImageRef();
-    ir->m_fileId = m_ps_search.resultInteger(0);
-    ir->m_tags = QSet<QString>::fromList(m_ps_search.resultString(1).split(' ', QString::SkipEmptyParts));
-    result.append(ir);
-  }
-
-  m_ps_search.reset();
+  qDebug() << __FUNCTION__ << timer.elapsed() << "ms";
 
   return result;
 }
 
 QList<QObject *> ImageDao::all()
 {
-  qWarning("request from: %ld", QThread::currentThreadId());
+  QElapsedTimer timer;
+  timer.start();
+
   QList<QObject *> result;
 
   while(m_ps_all.step()) {
@@ -184,6 +181,8 @@ QList<QObject *> ImageDao::all()
   }
 
   m_ps_all.reset();
+
+  qDebug() << __FUNCTION__ << timer.elapsed() << "ms";
 
   return result;
 }
@@ -328,11 +327,6 @@ void ImageDao::createTemporaryTable(const QString &tableName, const QStringList 
 
 error:
   sqlite3_finalize(stmt);
-}
-
-void ImageDao::destroyTemporaryTable(const QString &tableName)
-{
-
 }
 
 void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)

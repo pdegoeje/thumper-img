@@ -107,11 +107,10 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_removeTag;
   SQLitePreparedStatement m_ps_tagsById;
   SQLitePreparedStatement m_ps_idByHash;
-  SQLitePreparedStatement m_ps_search;
   SQLitePreparedStatement m_ps_all;
-  //SQLitePreparedStatement m_ps_imageById;
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
+  SQLitePreparedStatement m_ps_allTagCount;
 public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
@@ -119,9 +118,9 @@ public:
   Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag);
   Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag);
 
+  Q_INVOKABLE QVariantList allTagCount();
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
-  Q_INVOKABLE QList<QObject *> searchSubset(const QList<QObject *> &irefs, const QStringList &tags);
-  Q_INVOKABLE QList<QObject *> search(const QStringList &tags);
+  Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);
   Q_INVOKABLE QList<QObject *> all();
   Q_INVOKABLE QStringList tagsById(qint64 id);
   void addTag(qint64 fileId, const QString &tag);
@@ -137,7 +136,6 @@ public:
   static ImageDao *instance();
 private:
   void createTemporaryTable(const QString &tableName, const QStringList &items);
-  void destroyTemporaryTable(const QString &tableName);
 signals:
 public slots:
 };

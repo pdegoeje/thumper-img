@@ -30,20 +30,23 @@ ApplicationWindow {
     id: viewModel
   }
   property var viewModelSimpleList: []
+  property var allSimpleList: ImageDao.all()
 
   property var selectionModel: []
 
 
   property var selectionTagCount: []
-  property var allTagsCount: []
+  property var viewTagCount: []
 
   property var searchTagsModel: []
+  property var allTagCount: []
 
   onSelectionModelChanged: rebuildTagModels()
 
   function rebuildTagModels() {
     selectionTagCount = ImageDao.tagCount(selectionModel)
-    allTagsCount = ImageDao.tagCount(viewModelSimpleList)
+    viewTagCount = ImageDao.tagCount(viewModelSimpleList)
+    allTagCount = ImageDao.allTagCount()
   }
 
   function rebuildSelectionModel() {
@@ -96,6 +99,7 @@ ApplicationWindow {
         ImageDao.transactionEnd()
       }
 
+      allSimpleList.push(ref)
       viewAppend(ref)
     }
   }
@@ -103,9 +107,9 @@ ApplicationWindow {
   onSearchTagsModelChanged: {
     var refList
     if(searchTagsModel.length > 0) {
-      refList = ImageDao.search(searchTagsModel)
+      refList = ImageDao.search(allSimpleList, searchTagsModel)
     } else {
-      refList = ImageDao.all()
+      refList = allSimpleList
     }   
 
     viewClear()
@@ -122,9 +126,9 @@ ApplicationWindow {
     RowLayout {
       anchors.left: parent.left
       anchors.right: parent.right
-      spacing: 8
 
       TextField {
+        id: searchField
         Layout.preferredWidth: 200
         placeholderText: "Search"
         selectByMouse: true
@@ -135,8 +139,15 @@ ApplicationWindow {
           } else {
             searchTagsModel = []
           }
+        }
+      }
 
-          console.log(searchTagsModel)
+      TagList {
+        model: allTagCount
+        checkable: true
+        onClicked: {
+          searchTagsModel = checkedTags
+          searchField.text = searchTagsModel.join(' ')
         }
       }
 
@@ -200,6 +211,8 @@ ApplicationWindow {
     parent: Overlay.overlay
     anchors.centerIn: Overlay.overlay
     focus: true
+
+    onAboutToShow: tagField.text = ''
 
     RowLayout {
       Label {
@@ -368,7 +381,7 @@ ApplicationWindow {
     id: tagSelection
 
     onEditComplete: {
-      var result = ImageDao.searchSubset(viewModelSimpleList, selectedTags)
+      var result = ImageDao.search(viewModelSimpleList, selectedTags)
       if(result.length > 0) {
         viewModelSimpleList.forEach(function(ref) { ref.selected = false })
         result.forEach(function(ref) { ref.selected = true })
@@ -388,33 +401,23 @@ ApplicationWindow {
       anchors.left: parent.left
       anchors.right: parent.right
 
-
       id: myFlow
-      spacing: 4
       Label {
         text: "Selected %1/%2".arg(selectionModel.length).arg(viewModel.count)
       }
 
-      Repeater {
+      TagList {
         model: selectionTagCount
-        Tag {
-          property string tag: modelData[0]
-          property int count: modelData[1]
-          backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
-          text: tag + (count > 1 ? " (%1)".arg(count) : "")
+        //backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
 
-          onClicked: {
-            ImageDao.transactionStart()
-            if(count == selectionModel.length) {
-              selectionModel.forEach(function(ref) { ImageDao.removeTag(ref, tag) })
-              rebuildTagModels()
-            } else {
-              selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
-              rebuildSelectionModel()
-            }
-            ImageDao.transactionEnd()
-          }
+        backgroundColor: 'green'
+        onClicked: {
+          ImageDao.transactionStart()
+          selectionModel.forEach(function(ref) { ImageDao.removeTag(ref, tag) })
+          rebuildTagModels()
+          ImageDao.transactionEnd()
         }
+
       }
 
       Item {
@@ -424,36 +427,31 @@ ApplicationWindow {
       Button {
         text: "Select"
 
-
         onClicked: {
           var mysel = selectionTagCount.map(function(x) { return x[0]})
-          tagSelection.edit(mysel, allTagsCount)
+          tagSelection.edit(mysel, viewTagCount)
         }
       }
 
+      Label {
+        text: "Add"
+      }
+
       Tag {
-        text: 'Add new tag'
-        backgroundColor: 'teal'
+        text: 'new'
+        backgroundColor: Material.accentColor
         onClicked: {
           addTagPopup.open()
         }
       }
 
-      Repeater {
-        model: allTagsCount
-        Tag {
-          property string tag: modelData[0]
-          property int count: modelData[1]
-
-          backgroundColor: 'blue'
-          text: tag + (count > 1 ? " (%1)".arg(count) : "")
-
-          onClicked: {
-            ImageDao.transactionStart()
-            selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
-            rebuildSelectionModel()
-            ImageDao.transactionEnd()
-          }
+      TagList {
+        model: allTagCount
+        onClicked: {
+          ImageDao.transactionStart()
+          selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
+          rebuildSelectionModel()
+          ImageDao.transactionEnd()
         }
       }
     }

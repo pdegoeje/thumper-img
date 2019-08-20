@@ -4,5 +4,6 @@
         <file>Tag.qml</file>
         <file>qtquickcontrols2.conf</file>
         <file>TagSelection.qml</file>
+        <file>TagList.qml</file>
     </qresource>
 </RCC>

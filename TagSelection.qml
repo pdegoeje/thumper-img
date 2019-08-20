@@ -37,8 +37,8 @@ Popup {
         id: tagRepeater
         model: tagList
         Tag {
-          property string tag: modelData[0]
-          property int count: modelData[1]
+          tag: modelData[0]
+          count: modelData[1]
           checked: initialSelection.indexOf(tag) != -1
           checkable: true
           backgroundColor: checked ? 'green' : 'grey'
