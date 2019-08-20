@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QBuffer>
+#include <QThread>
 
 ImageDao *ImageDao::m_instance;
 
@@ -54,11 +55,12 @@ ImageDao *ImageDao::m_instance;
   } \
 }
 
-ImageDao::ImageDao(QObject *parent) : QObject(parent)
+ImageDao::ImageDao(QObject *parent) :
+  QObject(parent),
+  m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_SHAREDCACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
 {
-  if(sqlite3_open_v2("main.db", &m_db, SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr) != SQLITE_OK) {
-    qWarning("Coudn't open SQLite database: %s", sqlite3_errmsg(m_db));
-  }
+  m_conn = m_connPool.open();
+  m_db = m_conn->m_db;
 
   CHECK_EXEC("CREATE TABLE IF NOT EXISTS store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
   CHECK_EXEC("CREATE TABLE IF NOT EXISTS tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
@@ -85,7 +87,7 @@ ImageDao::ImageDao(QObject *parent) : QObject(parent)
                       "GROUP BY store.id "
                       "ORDER BY date DESC");
 
-  m_ps_imageById.init(m_db, "SELECT image FROM store WHERE id = ?1");
+
   m_ps_transStart.init(m_db, "BEGIN TRANSACTION");
   m_ps_transEnd.init(m_db, "END TRANSACTION");
 error:
@@ -94,6 +96,7 @@ error:
 
 ImageDao::~ImageDao()
 {
+  m_connPool.close(m_conn);
   //m_ps_removeTag.destroy();
   //m_ps_addTag.destroy();
 
@@ -170,6 +173,7 @@ QList<QObject *> ImageDao::search(const QStringList &tags)
 
 QList<QObject *> ImageDao::all()
 {
+  qWarning("request from: %ld", QThread::currentThreadId());
   QList<QObject *> result;
 
   while(m_ps_all.step()) {
@@ -242,10 +246,14 @@ QStringList ImageDao::tagsById(qint64 id)
   return tags;
 }
 
-QImage ImageDao::requestImage(qint64 id, QSize *size, const QSize &requestedSize)
+QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize)
 {
   QImage result;
 
+  SQLitePreparedStatement m_ps_imageById;
+  SQLiteConnection *m_myConn = m_connPool.open();
+
+  m_ps_imageById.init(m_myConn->m_db, "SELECT image FROM store WHERE id = ?1");
   m_ps_imageById.bind(1, id);
   m_ps_imageById.step();
 
@@ -257,34 +265,31 @@ QImage ImageDao::requestImage(qint64 id, QSize *size, const QSize &requestedSize
   QBuffer buffer(&byte_array);
   QImageReader reader(&buffer);
 
-  auto actualSize = reader.size();
+  if(requestedSize.isValid()) {
+    auto actualSize = reader.size();
 
-  float scalex = (float)requestedSize.width() / actualSize.width();
-  float scaley = (float)requestedSize.height() / actualSize.height();
+    float scalex = (float)requestedSize.width() / actualSize.width();
+    float scaley = (float)requestedSize.height() / actualSize.height();
 
-  QSize newSize;
-  if(scalex > scaley) {
-    newSize.setWidth(requestedSize.width());
-    newSize.setHeight(actualSize.height() * scalex);
-  } else {
-    newSize.setWidth(actualSize.width() * scaley);
-    newSize.setHeight(requestedSize.height());
+    QSize newSize;
+    if(scalex > scaley) {
+      newSize.setWidth(requestedSize.width());
+      newSize.setHeight(actualSize.height() * scalex);
+    } else {
+      newSize.setWidth(actualSize.width() * scaley);
+      newSize.setHeight(requestedSize.height());
+    }
+
+    reader.setScaledSize(newSize);
   }
-
-  if(newSize.height() < 1)
-    newSize.setHeight(1);
-
-  if(newSize.width() < 1)
-    newSize.setWidth(1);
-
-  reader.setScaledSize(newSize);
 
   result = reader.read();
-  if(size) {
-    *size = QSize(result.width(), result.height());
-  }
 
   m_ps_imageById.reset();
+  m_ps_imageById.destroy();
+
+  m_connPool.close(m_myConn);
+
   return result;
 }
 
@@ -406,4 +411,18 @@ void SQLitePreparedStatement::destroy()
 QStringList ImageRef::tags()
 {
   return m_tags.toList();
+}
+
+SQLiteConnection::SQLiteConnection(const QString &dbname, int flags)
+{
+  if(sqlite3_open_v2(qUtf8Printable(dbname), &m_db, flags, nullptr) != SQLITE_OK) {
+    qWarning("Coudln't open SQLite database: %s", sqlite3_errmsg(m_db));
+  }
+
+  qInfo("Created new connection to %s", qUtf8Printable(dbname));
+}
+
+SQLiteConnection::~SQLiteConnection()
+{
+  sqlite3_close_v2(m_db);
 }

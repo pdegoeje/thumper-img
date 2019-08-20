@@ -1,12 +1,17 @@
 #include "imageprocessor.h"
 #include "thumperimageprovider.h"
 #include "imagedao.h"
+#include "sqlite3.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
 int main(int argc, char *argv[])
 {
+  if(sqlite3_enable_shared_cache(true) == SQLITE_OK) {
+    qInfo("SQLite3 Shared Cache Enabled");
+  }
+
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
   QGuiApplication app(argc, argv);
@@ -17,7 +22,7 @@ int main(int argc, char *argv[])
     [](QQmlEngine *, QJSEngine *) { return (QObject *)ImageDao::instance(); });
 
   QQmlApplicationEngine engine;
-  engine.addImageProvider(QLatin1String("thumper"), ThumperImageProvider::instance());
+  engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());
 
   engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
   if (engine.rootObjects().isEmpty())

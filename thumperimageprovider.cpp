@@ -1,25 +1,38 @@
 #include "thumperimageprovider.h"
 #include "imagedao.h"
 
-ThumperImageProvider *ThumperImageProvider::m_instance;
-
-ThumperImageProvider::ThumperImageProvider() : QQuickImageProvider(QQuickImageProvider::Image) {
-
-}
-
-ThumperImageProvider::~ThumperImageProvider()
+AsyncImageResponse::AsyncImageResponse(qint64 id, const QSize &requestedSize)
+  : m_id(id), m_requestedSize(requestedSize)
 {
-
+  setAutoDelete(false);
 }
 
-QImage ThumperImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
+QQuickTextureFactory *AsyncImageResponse::textureFactory() const
 {
-  return ImageDao::instance()->requestImage(id.toLongLong(), size, requestedSize);
+  return QQuickTextureFactory::textureFactoryForImage(m_image);
 }
 
-ThumperImageProvider *ThumperImageProvider::instance() {
-  if(m_instance == nullptr) {
-    m_instance = new ThumperImageProvider();
+void AsyncImageResponse::run()
+{
+  if(!m_cancelled) {
+    m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize);
   }
-  return m_instance;
+  emit finished();
+}
+
+void AsyncImageResponse::cancel()
+{
+  m_cancelled = true;
+}
+
+ThumperAsyncImageProvider::ThumperAsyncImageProvider()
+{
+
+}
+
+QQuickImageResponse *ThumperAsyncImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
+{
+  AsyncImageResponse *response = new AsyncImageResponse(id.toLongLong(), requestedSize);
+  m_threadPool.start(response);
+  return response;
 }

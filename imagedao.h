@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QSet>
+#include <QMutex>
+#include <QMutexLocker>
 
 #include "sqlite3.h"
 
@@ -25,6 +27,48 @@ struct SQLitePreparedStatement {
   void destroy();
 
   ~SQLitePreparedStatement() { destroy(); }
+};
+
+struct SQLiteConnection {
+  sqlite3 *m_db;
+
+  SQLiteConnection(const QString &dbname, int flags);
+  ~SQLiteConnection();
+};
+
+struct SQLiteConnectionPool {
+  //int m_maxPool;
+  QVector<SQLiteConnection *> m_pool;
+  QString m_dbname;
+  int m_flags;
+  QMutex m_mutex;
+
+  SQLiteConnectionPool(const QString &dbname, int flags) {
+    //m_maxPool = maxPool;
+    m_dbname = dbname;
+    m_flags = flags;
+  }
+
+  ~SQLiteConnectionPool() {
+    for(auto conn : m_pool) {
+      delete conn;
+    }
+  }
+
+  SQLiteConnection *open() {
+    QMutexLocker lock(&m_mutex);
+    if(m_pool.isEmpty()) {
+      return new SQLiteConnection(m_dbname, m_flags);
+    } else {
+      auto result = m_pool.last();
+      m_pool.removeLast();
+      return result;
+    }
+  }
+  void close(SQLiteConnection *conn) {
+    QMutexLocker lock(&m_mutex);
+    m_pool.append(conn);
+  }
 };
 
 class ImageRef : public QObject {
@@ -53,6 +97,9 @@ class ImageDao : public QObject
 
   static ImageDao *m_instance;
 
+  SQLiteConnectionPool m_connPool;
+  SQLiteConnection *m_conn;
+
   sqlite3 *m_db = nullptr;
 
   SQLitePreparedStatement m_ps_insert;
@@ -62,7 +109,7 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_idByHash;
   SQLitePreparedStatement m_ps_search;
   SQLitePreparedStatement m_ps_all;
-  SQLitePreparedStatement m_ps_imageById;
+  //SQLitePreparedStatement m_ps_imageById;
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
 public:
@@ -84,7 +131,7 @@ public:
   Q_INVOKABLE void transactionStart();
   Q_INVOKABLE void transactionEnd();
 
-  QImage requestImage(qint64 id, QSize *size, const QSize &requestedSize);
+  QImage requestImage(qint64 id, const QSize &requestedSize);
   void insert(const QString &hash, const QByteArray &data);
 
   static ImageDao *instance();
