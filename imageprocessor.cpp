@@ -127,13 +127,15 @@ void ImageProcessorWorker::downloadFinished(QNetworkReply *reply)
     if (isHttpRedirect(reply)) {
       qInfo("Request was redirected.");
     } else {
-      qInfo("Download of %s succeeded", url.toEncoded().constData());
+
 
       QByteArray bytes = reply->readAll();
       QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
       QString key(hash.toHex());
 
-      emit ready(url, bytes, hash);
+      qInfo("Download of %s succeeded (%s/%d)", url.toEncoded().constData(), qUtf8Printable(key), bytes.length());
+
+      emit ready(url, bytes, key);
     }
   }
 

@@ -263,112 +263,98 @@ ApplicationWindow {
     }
   }
 
-  Control {
-    focusPolicy: Qt.StrongFocus
+  GridView {
+    activeFocusOnTab: true
     anchors.fill: parent
 
-    onActiveFocusChanged: {
-      if(focus) {
-        list.forceActiveFocus()
-      }
-    }
+    id: list
 
-    contentItem: GridView {
-      anchors.fill: parent
+    focus: true
 
-      id: list
+    model: viewModel
+    property int pad: spacing / 2
 
-      focus: true
+    topMargin: pad
+    bottomMargin: pad
+    leftMargin: pad
+    rightMargin: pad
 
-      model: viewModel
-      property int pad: spacing / 2
+    cellWidth: imageWidth + spacing
+    cellHeight: imageHeight + spacing
 
-      topMargin: pad
-      bottomMargin: pad
-      leftMargin: pad
-      rightMargin: pad
+    highlight: highlight
+    highlightFollowsCurrentItem: false
+    //highlightMoveDuration: 0
 
-      cellWidth: imageWidth + spacing
-      cellHeight: imageHeight + spacing
+    pixelAligned: false
+    interactive: true
 
-      highlight: highlight
-      highlightFollowsCurrentItem: false
-      //highlightMoveDuration: 0
+    ScrollBar.vertical: ScrollBar { }
 
-      pixelAligned: true
-      interactive: true
+    delegate: Item {
+      id: item
+      width: list.cellWidth
+      height: list.cellHeight
 
-      TapHandler {
-        onTapped: {
-          list.forceActiveFocus()
+      property ImageRef image: ref
+
+      Image {
+        x: list.pad
+        y: list.pad
+
+        id: view
+        asynchronous: true
+        height: imageHeight
+        width: imageWidth
+        fillMode: cellFillMode
+        cache: true
+        mipmap: false
+        smooth: true
+        source: "image://thumper/" + item.image.fileId
+        sourceSize.height: height
+        sourceSize.width: width
+
+        opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !item.image.selected) ? 0.4 : 1) : 0
+
+        Behavior on opacity {
+          NumberAnimation { duration: 100 }
         }
-      }
 
-      delegate: Item {
-        id: item
-        width: list.cellWidth
-        height: list.cellHeight
-
-        property ImageRef image: ref
-
-        Image {
-          x: list.pad
-          y: list.pad
-
-          id: view
-          asynchronous: true
-          height: imageHeight
-          width: imageWidth
-          fillMode: cellFillMode
-          cache: true
-          mipmap: false
-          smooth: true
-          source: "image://thumper/" + item.image.fileId
-          sourceSize.height: height
-          sourceSize.width: width
-
-          opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !item.image.selected) ? 0.4 : 1) : 0
-
-          Behavior on opacity {
-            NumberAnimation { duration: 100 }
-          }
-
-          CheckBox {
-            visible: toolbar.visible
-            id: theCheck
-            focusPolicy: Qt.NoFocus
-            checked: item.image.selected
-            onClicked: {
-              if(item.image.selected != checked) {
-                item.image.selected = checked
-                rebuildSelectionModel()
-              }
-            }
-          }
-
-          TapHandler {
-            acceptedModifiers: Qt.AltModifier
-            onTapped: {
-              offscreen.fileId = fileId
-              offscreen.source = view.source
-            }
-          }
-
-          TapHandler {
-            acceptedModifiers: Qt.NoModifier
-            onTapped: {
-              list.forceActiveFocus()
-              list.currentIndex = index
-              lightboxLoader.active = true
-            }
-          }
-
-          TapHandler {
-            acceptedModifiers: Qt.ControlModifier
-            onTapped: {
-              item.image.selected = !item.image.selected
+        CheckBox {
+          visible: toolbar.visible
+          id: theCheck
+          focusPolicy: Qt.NoFocus
+          checked: item.image.selected
+          onClicked: {
+            if(item.image.selected != checked) {
+              item.image.selected = checked
               rebuildSelectionModel()
             }
+          }
+        }
+
+        TapHandler {
+          acceptedModifiers: Qt.AltModifier
+          onTapped: {
+            offscreen.fileId = fileId
+            offscreen.source = view.source
+          }
+        }
+
+        TapHandler {
+          acceptedModifiers: Qt.NoModifier
+          onTapped: {
+            list.forceActiveFocus()
+            list.currentIndex = index
+            lightboxLoader.active = true
+          }
+        }
+
+        TapHandler {
+          acceptedModifiers: Qt.ControlModifier
+          onTapped: {
+            item.image.selected = !item.image.selected
+            rebuildSelectionModel()
           }
         }
       }
