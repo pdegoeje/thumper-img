@@ -346,6 +346,9 @@ ApplicationWindow {
           onTapped: {
             list.forceActiveFocus()
             list.currentIndex = index
+          }
+
+          onDoubleTapped: {
             lightboxLoader.active = true
           }
         }
