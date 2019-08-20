@@ -58,14 +58,14 @@ ApplicationWindow {
   }
 
   function viewClear() {
-    console.log("viewClear")
+    //console.log("viewClear")
     viewIdToIndexMap = ({})
     viewModel.clear()
     viewModelSimpleList = []
   }
 
   function viewAppend(ref) {
-    console.log("viewAppend", ref, ref.fileId, ref.selected, ref.tags)
+    //console.log("viewAppend", ref, ref.fileId, ref.selected, ref.tags)
     viewIdToIndexMap[ref.fileId] = viewModel.count
     viewModel.append({ 'ref' : ref })
     viewModelSimpleList.push(ref)
@@ -89,9 +89,11 @@ ApplicationWindow {
         var foundTags = basename.match(word)
 
         console.log("Tags found", foundTags)
+        ImageDao.transactionStart()
         for(var i in foundTags) {
           ImageDao.addTag(ref, foundTags[i])
         }
+        ImageDao.transactionEnd()
       }
 
       viewAppend(ref)
@@ -99,15 +101,11 @@ ApplicationWindow {
   }
 
   onSearchTagsModelChanged: {
-    console.log("searchTagsModel changed", searchTagsModel, searchTagsModel.length)
     var refList
     if(searchTagsModel.length > 0) {
-      console.log("Search")
       refList = ImageDao.search(searchTagsModel)
     } else {
-      console.log("All Ids")
       refList = ImageDao.all()
-      console.log(refList)
     }   
 
     viewClear()
@@ -382,12 +380,14 @@ ApplicationWindow {
 
     onEditComplete: {
       var result = ImageDao.searchSubset(viewModelSimpleList, selectedTags)
-      viewModelSimpleList.forEach(function(ref) { ref.selected = false })
-      result.forEach(function(ref) { ref.selected = true })
-      rebuildSelectionModel()
+      if(result.length > 0) {
+        viewModelSimpleList.forEach(function(ref) { ref.selected = false })
+        result.forEach(function(ref) { ref.selected = true })
+        rebuildSelectionModel()
 
-      var index = viewIdToIndexMap[result[0].fileId]
-      list.positionViewAtIndex(index, GridView.Center)
+        var index = viewIdToIndexMap[result[0].fileId]
+        list.positionViewAtIndex(index, GridView.Center)
+      }
     }
   }
 
