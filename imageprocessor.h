@@ -27,7 +27,7 @@ private slots:
   void downloadFinished(QNetworkReply *reply);
   void sslErrors(const QList<QSslError> &sslErrors);
 signals:
-  void ready(const QUrl &url, const QByteArray &data, const QString &hash);
+  void ready(const QUrl &url, const QString &hash);
 };
 
 class ImageProcessor : public QObject
@@ -41,12 +41,13 @@ public:
 
   Q_INVOKABLE void setClipBoard(const QString &data);
   Q_INVOKABLE void download(const QUrl &url);
+  Q_INVOKABLE void downloadList(const QList<QUrl> &urls);
   Q_INVOKABLE QString urlFileName(const QUrl &url);
 signals:
   void imageReady(const QString &hash, const QUrl &url);
   void startDownload(const QUrl &url);
 public slots:
-  void ready(const QUrl &url, const QByteArray &data, const QString &hash);
+  void ready(const QUrl &url, const QString &hash);
 };
 
 #endif // IMAGEPROCESSOR_H

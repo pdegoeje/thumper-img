@@ -553,10 +553,7 @@ ApplicationWindow {
     onDropped: {
       if (drop.hasUrls && drop.proposedAction == Qt.CopyAction) {
         drop.acceptProposedAction()
-
-        drop.urls.forEach(function(x) {
-          processor.download(x)
-        });
+        processor.downloadList(drop.urls)
       }
     }
   }

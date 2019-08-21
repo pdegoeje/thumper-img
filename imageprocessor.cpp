@@ -48,12 +48,19 @@ void ImageProcessor::download(const QUrl &url)
   emit startDownload(url);
 }
 
+void ImageProcessor::downloadList(const QList<QUrl> &urls)
+{
+  for(const auto &url : urls) {
+    emit startDownload(url);
+  }
+}
+
 QString ImageProcessor::urlFileName(const QUrl &url)
 {
   return url.fileName();
 }
 
-void ImageProcessor::ready(const QUrl &url, const QByteArray &data, const QString &hash)
+void ImageProcessor::ready(const QUrl &url, const QString &hash)
 {
   emit imageReady(hash, url);
 }
@@ -72,8 +79,6 @@ ImageProcessorWorker::ImageProcessorWorker(QObject *parent) : QObject(parent)
 
 void ImageProcessorWorker::startDownload(const QUrl &url)
 {
-  qInfo("ImageProcessorWorker::startDownload %d", QThread::currentThreadId());
-
   if(manager == nullptr) {
     manager = new QNetworkAccessManager(this);
     connect(manager, SIGNAL(finished(QNetworkReply*)),
@@ -99,16 +104,14 @@ void ImageProcessorWorker::downloadFinished(QNetworkReply *reply)
     if (isHttpRedirect(reply)) {
       qInfo("Request was redirected.");
     } else {
-
-
       QByteArray bytes = reply->readAll();
-      QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
-      QString key(hash.toHex());
+      QByteArray hashBytes = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
+      QString hashString(hashBytes.toHex());
 
       ImageDao *tip = ImageDao::instance();
-      tip->insert(key, bytes);
+      tip->insert(hashString, bytes);
 
-      emit ready(url, bytes, key);
+      emit ready(url, hashString);
     }
   }
 
