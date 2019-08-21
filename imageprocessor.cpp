@@ -11,10 +11,6 @@
 
 ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 {
-  connect(&m_timer, &QTimer::timeout, this, &ImageProcessor::drainQueue);
-  m_timer.setInterval(100);
-  m_timer.setSingleShot(true);
-
   ImageProcessorWorker *worker = new ImageProcessorWorker();
   worker->moveToThread(&m_workerThread);
 
@@ -23,8 +19,6 @@ ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
   connect(worker, &ImageProcessorWorker::ready, this, &ImageProcessor::ready);
 
   m_workerThread.start();
-
-  qInfo("construct");
 }
 
 ImageProcessor::~ImageProcessor()
@@ -49,8 +43,8 @@ void ImageProcessorWorker::sslErrors(const QList<QSslError> &sslErrors)
 }
 
 
-void ImageProcessor::download(const QUrl &url) {
-  qInfo("ImageProcessor::download %d", QThread::currentThreadId());
+void ImageProcessor::download(const QUrl &url)
+{
   emit startDownload(url);
 }
 
@@ -61,27 +55,8 @@ QString ImageProcessor::urlFileName(const QUrl &url)
 
 void ImageProcessor::ready(const QUrl &url, const QByteArray &data, const QString &hash)
 {
-  m_buffers.append({url, hash, data});
-  if(!m_timer.isActive()) {
-    m_timer.start();
-  }
+  emit imageReady(hash, url);
 }
-
-void ImageProcessor::drainQueue()
-{
-  qInfo("Drain queue: %d", m_buffers.length());
-  ImageDao *tip = ImageDao::instance();
-  tip->transactionStart();
-  while(!m_buffers.isEmpty()) {
-    ImageBuffer ib = m_buffers.front();
-    tip->insert(ib.hash, ib.data);
-    m_buffers.pop_front();
-
-    emit imageReady(ib.hash, ib.url);
-  }
-  tip->transactionEnd();
-}
-
 
 bool ImageProcessorWorker::isHttpRedirect(QNetworkReply *reply)
 {
@@ -107,9 +82,6 @@ void ImageProcessorWorker::startDownload(const QUrl &url)
 
   QNetworkRequest req(url);
   QNetworkReply *reply = manager->get(req);
-
-  qInfo("ImageProcessorWorker::startDownload END");
-
 #if QT_CONFIG(ssl)
   connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
           SLOT(sslErrors(QList<QSslError>)));
@@ -133,7 +105,8 @@ void ImageProcessorWorker::downloadFinished(QNetworkReply *reply)
       QByteArray hash = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
       QString key(hash.toHex());
 
-      qInfo("Download of %s succeeded (%s/%d)", url.toEncoded().constData(), qUtf8Printable(key), bytes.length());
+      ImageDao *tip = ImageDao::instance();
+      tip->insert(key, bytes);
 
       emit ready(url, bytes, key);
     }

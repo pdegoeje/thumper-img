@@ -77,7 +77,6 @@ ApplicationWindow {
     onImageReady: {
       var ref = ImageDao.findHash(hash)
       var fileName = urlFileName(url)
-      console.log("File saved", url)
       var regex = /^([a-zA-Z-_]+)[0-9]*\.(\w+)$/
       if(autoTagging && regex.test(fileName)) {
         var result = fileName.match(regex)
@@ -335,18 +334,10 @@ ApplicationWindow {
         sourceSize.height: height
         sourceSize.width: width
 
-        //opacity:
-
-        Binding {
-          target: view
-          property: 'opacity'
-          value: (view.status == Image.Ready) ? ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1) : 0
-          delayed: true
-        }
+        opacity: (view.status == Image.Ready) ? ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1) : 0
 
         Behavior on opacity {
-          //NumberAnimation { duration: 100 }
-          OpacityAnimator { duration: 100 }
+          NumberAnimation { duration: 100 }
         }
 
         // don't even bother loading if the image isn't ready for display

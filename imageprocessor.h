@@ -34,8 +34,6 @@ class ImageProcessor : public QObject
 {
   Q_OBJECT
 
-  QTimer m_timer;
-  QQueue<ImageBuffer> m_buffers;
   QThread m_workerThread;
 public:
   explicit ImageProcessor(QObject *parent = nullptr);
@@ -49,8 +47,6 @@ signals:
   void startDownload(const QUrl &url);
 public slots:
   void ready(const QUrl &url, const QByteArray &data, const QString &hash);
-private slots:
-  void drainQueue();
 };
 
 #endif // IMAGEPROCESSOR_H

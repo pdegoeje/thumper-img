@@ -59,11 +59,12 @@ ImageDao *ImageDao::m_instance;
 
 ImageDao::ImageDao(QObject *parent) :
   QObject(parent),
-  m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_SHAREDCACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
+  m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
 {
   m_conn = m_connPool.open();
   m_db = m_conn->m_db;
 
+  CHECK_EXEC("PRAGMA journal_mode = WAL");
   CHECK_EXEC("CREATE TABLE IF NOT EXISTS store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
   CHECK_EXEC("CREATE TABLE IF NOT EXISTS tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
   CHECK_EXEC("CREATE INDEX IF NOT EXISTS tag_index ON tag ( tag )");
@@ -173,7 +174,7 @@ QList<QObject *> ImageDao::all()
 
   QList<QObject *> result;
 
-  while(m_ps_all.step()) {
+  while(m_ps_all.step(__FUNCTION__)) {
     ImageRef *ir = new ImageRef();
     ir->m_fileId = m_ps_all.resultInteger(0);
     ir->m_tags = QSet<QString>::fromList(m_ps_all.resultString(1).split(' ', QString::SkipEmptyParts));
@@ -191,7 +192,7 @@ void ImageDao::addTag(qint64 id, const QString &tag)
 {
   m_ps_addTag.bind(1, id);
   m_ps_addTag.bind(2, tag);
-  m_ps_addTag.step();
+  m_ps_addTag.step(__FUNCTION__);
   m_ps_addTag.reset();
 }
 
@@ -199,15 +200,17 @@ void ImageDao::removeTag(qint64 id, const QString &tag)
 {
   m_ps_removeTag.bind(1, id);
   m_ps_removeTag.bind(2, tag);
-  m_ps_removeTag.step();
+  m_ps_removeTag.step(__FUNCTION__);
   m_ps_removeTag.reset();
 }
 
 ImageRef *ImageDao::findHash(const QString &hash)
 {
   m_ps_idByHash.bind(1, hash);
-  if(!m_ps_idByHash.step())
+  if(!m_ps_idByHash.step(__FUNCTION__)) {
+    m_ps_idByHash.reset();
     return nullptr;
+  }
 
   qint64 id = m_ps_idByHash.resultInteger(0);
 
@@ -254,7 +257,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
 
   m_ps_imageById.init(m_myConn->m_db, "SELECT image FROM store WHERE id = ?1");
   m_ps_imageById.bind(1, id);
-  m_ps_imageById.step();
+  m_ps_imageById.step(__FUNCTION__);
 
   const char *data = (const char *)sqlite3_column_blob(m_ps_imageById.m_stmt, 0);
   int bytes = sqlite3_column_bytes(m_ps_imageById.m_stmt, 0);
@@ -296,10 +299,15 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
 
 void ImageDao::insert(const QString &hash, const QByteArray &data)
 {
-  m_ps_insert.bind(1, hash);
-  m_ps_insert.bind(2, data);
-  m_ps_insert.step();
-  m_ps_insert.reset();
+  SQLiteConnection *conn = m_connPool.open();
+  SQLitePreparedStatement ps;
+  ps.init(conn->m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
+  ps.bind(1, hash);
+  ps.bind(2, data);
+  ps.step(__FUNCTION__);
+  ps.reset();
+  ps.destroy();
+  m_connPool.close(conn);
 }
 
 
@@ -373,7 +381,7 @@ qint64 SQLitePreparedStatement::resultInteger(int index)
   return sqlite3_column_int64(m_stmt, index);
 }
 
-bool SQLitePreparedStatement::step()
+bool SQLitePreparedStatement::step(const char *debug_str)
 {
   int rval = sqlite3_step(m_stmt);
   if(rval == SQLITE_ROW) {
@@ -384,7 +392,7 @@ bool SQLitePreparedStatement::step()
     return false;
   }
 
-  qWarning("Failed to step: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
+  qWarning("Failed to step (%s): %d %s", debug_str, rval, sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   return false;
 }
 

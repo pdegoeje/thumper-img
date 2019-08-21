@@ -22,7 +22,7 @@ struct SQLitePreparedStatement {
   void bind(int param, const QByteArray &data);
   QString resultString(int index);
   qint64 resultInteger(int index);
-  bool step();
+  bool step(const char *debug_str = nullptr);
   void reset();
   void clear();
   void destroy();

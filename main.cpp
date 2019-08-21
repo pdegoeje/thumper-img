@@ -8,10 +8,6 @@
 
 int main(int argc, char *argv[])
 {
-  if(sqlite3_enable_shared_cache(true) == SQLITE_OK) {
-    qInfo("SQLite3 Shared Cache Enabled");
-  }
-
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
   QGuiApplication app(argc, argv);
