@@ -96,20 +96,26 @@ ImageDao::~ImageDao()
   qInfo(__FUNCTION__);
 }
 
-void ImageDao::addTag(ImageRef *iref, const QString &tag) {
-  if(!iref->m_tags.contains(tag)) {
-    iref->m_tags.insert(tag);
-    addTag(iref->m_fileId, tag);
-    emit iref->tagsChanged();
-  }
+bool ImageDao::addTag(ImageRef *iref, const QString &tag) {
+  if(iref->m_tags.contains(tag))
+    return false;
+
+  iref->m_tags.insert(tag);
+  addTag(iref->m_fileId, tag);
+  emit iref->tagsChanged();
+
+  return true;
 }
 
-void ImageDao::removeTag(ImageRef *iref, const QString &tag) {
-  if(iref->m_tags.contains(tag)) {
-    iref->m_tags.remove(tag);
-    removeTag(iref->m_fileId, tag);
-    emit iref->tagsChanged();
-  }
+bool ImageDao::removeTag(ImageRef *iref, const QString &tag) {
+  if(!iref->m_tags.contains(tag))
+    return false;
+
+  iref->m_tags.remove(tag);
+  removeTag(iref->m_fileId, tag);
+  emit iref->tagsChanged();
+
+  return true;
 }
 
 QVariantList ImageDao::allTagCount()

@@ -121,8 +121,8 @@ public:
 
   SQLiteConnectionPool *connPool() { return &m_connPool; }
 
-  Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag);
-  Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag);
+  Q_INVOKABLE bool addTag(ImageRef *iref, const QString &tag);
+  Q_INVOKABLE bool removeTag(ImageRef *iref, const QString &tag);
 
   Q_INVOKABLE QVariantList allTagCount();
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);

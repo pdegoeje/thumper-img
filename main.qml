@@ -72,6 +72,43 @@ ApplicationWindow {
     viewModel.append(modelRefList)
   }
 
+  property var actionHistory: []
+
+  function actionAddTag(refList, tag, record = true) {
+    var actionList = []
+
+    ImageDao.transactionStart()
+    actionList = selectionModel.filter(function(ref) { return ImageDao.addTag(ref, tag) })
+    rebuildTagModels()
+    ImageDao.transactionEnd()
+
+    console.log("Added tag", tag, "to", actionList.length, "image(s)")
+
+    if(record) {
+      actionHistory.push(actionRemoveTag.bind(null, refList, tag));
+    }
+  }
+
+
+  function actionRemoveTag(refList, tag, record = true) {
+    var actionList = []
+
+    ImageDao.transactionStart()
+    actionList = selectionModel.filter(function(ref) { return ImageDao.removeTag(ref, tag) })
+    rebuildTagModels()
+    ImageDao.transactionEnd()
+
+    console.log("Removed tag", tag, "from", actionList.length, "image(s)")
+
+    if(record) {
+      actionHistory.push(actionAddTag.bind(null, refList, tag));
+    }
+  }
+
+  function recordUserAction() {
+
+  }
+
   ImageProcessor {
     id: processor
     onImageReady: {
@@ -205,6 +242,7 @@ ApplicationWindow {
     }
   }
 
+
   Popup {
     id: addTagPopup
     modal: true
@@ -226,10 +264,7 @@ ApplicationWindow {
         onAccepted: {
           var tag = text.trim()
           if(tag !== '') {
-            ImageDao.transactionStart()
-            selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
-            rebuildTagModels()
-            ImageDao.transactionEnd()
+            actionAddTag(selectionModel, tag)
           }
           addTagPopup.close()
         }
@@ -302,6 +337,14 @@ ApplicationWindow {
     pixelAligned: false
     interactive: true
 
+    onCurrentIndexChanged: {
+      if(selectionModel.length <= 1) {
+        selectionModel.forEach(function(ref) { ref.selected = false })
+      }
+      viewModelSimpleList[currentIndex].selected = true
+      rebuildSelectionModel()
+    }
+
     property bool isScrolling: false
 
     onFlickStarted: isScrolling = true
@@ -309,6 +352,18 @@ ApplicationWindow {
 
     ScrollBar.vertical: ScrollBar {
       onPressedChanged: list.isScrolling = pressed
+    }
+
+    Keys.onSpacePressed: {
+      lightboxLoader.active = true
+      event.accepted = true
+    }
+
+    Keys.onPressed: {
+      if(event.key === Qt.Key_A) {
+        addTagPopup.open()
+        event.accepted = true
+      }
     }
 
     delegate: Item {
@@ -333,7 +388,7 @@ ApplicationWindow {
         source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
-        opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1)
+        opacity: ((selectionModel.length > 1 && !delegateItem.image.selected) ? 0.4 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
         }
@@ -434,10 +489,7 @@ ApplicationWindow {
 
         backgroundColor: 'green'
         onClicked: {
-          ImageDao.transactionStart()
-          selectionModel.forEach(function(ref) { ImageDao.removeTag(ref, tag) })
-          rebuildTagModels()
-          ImageDao.transactionEnd()
+          actionRemoveTag(selectionModel, tag)
         }
 
       }
@@ -470,10 +522,7 @@ ApplicationWindow {
       TagList {
         model: allTagCount
         onClicked: {
-          ImageDao.transactionStart()
-          selectionModel.forEach(function(ref) { ImageDao.addTag(ref, tag) })
-          rebuildSelectionModel()
-          ImageDao.transactionEnd()
+          actionAddTag(selectionModel, tag)
         }
       }
     }
@@ -486,10 +535,21 @@ ApplicationWindow {
     sourceComponent: Popup {
       id: lightbox
 
+      Shortcut {
+        sequence: "Escape"
+        onActivated: close()
+      }
+
+      Shortcut {
+        sequence: "Space"
+        onActivated: close()
+      }
+
       property ImageRef image: viewModel.get(list.currentIndex).ref
 
       parent: Overlay.overlay
       anchors.centerIn: Overlay.overlay
+      modal: true
       dim: true
       visible: true
 
@@ -605,9 +665,22 @@ ApplicationWindow {
   }
 
   Shortcut {
-    sequence: "Ctrl+Space"
+    sequence: "Ctrl+Z"
     onActivated: {
-      lightboxLoader.active = !lightboxLoader.active
+      console.log("Undo/redo the last action")
+      var func = actionHistory.pop()
+      func(true)
+    }
+  }
+
+  Shortcut {
+    sequence: "Ctrl+Shift+Z"
+    onActivated: {
+      if(actionHistory.length) {
+        console.log("Undo the last action")
+        var func = actionHistory.pop()
+        func(false)
+      }
     }
   }
 }
