@@ -11,20 +11,30 @@
 
 ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 {
-  ImageProcessorWorker *worker = new ImageProcessorWorker();
-  worker->moveToThread(&m_workerThread);
+  ImageFetcher *fetcher = new ImageFetcher();
+  ImageDatabaseWriter *writer = new ImageDatabaseWriter();
 
-  connect(&m_workerThread, &QThread::finished, worker, &QObject::deleteLater);
-  connect(this, &ImageProcessor::startDownload, worker, &ImageProcessorWorker::startDownload);
-  connect(worker, &ImageProcessorWorker::ready, this, &ImageProcessor::ready);
+  fetcher->moveToThread(&m_downloadThread);
+  writer->moveToThread(&m_writeThread);
 
-  m_workerThread.start();
+  connect(&m_downloadThread, &QThread::finished, fetcher, &QObject::deleteLater);
+  connect(&m_writeThread, &QThread::finished, writer, &QObject::deleteLater);
+
+  connect(this, &ImageProcessor::startDownload, fetcher, &ImageFetcher::startDownload);
+  connect(fetcher, &ImageFetcher::downloadComplete, writer, &ImageDatabaseWriter::startWrite);
+  connect(writer, &ImageDatabaseWriter::writeComplete, this, &ImageProcessor::imageReady);
+
+  m_downloadThread.start();
+  m_writeThread.start();
 }
 
 ImageProcessor::~ImageProcessor()
 {
-  m_workerThread.quit();
-  m_workerThread.wait();
+  m_downloadThread.quit();
+  m_downloadThread.wait();
+
+  m_writeThread.quit();
+  m_writeThread.wait();
 }
 
 void ImageProcessor::setClipBoard(const QString &data) {
@@ -32,7 +42,7 @@ void ImageProcessor::setClipBoard(const QString &data) {
   cb->setText(data);
 }
 
-void ImageProcessorWorker::sslErrors(const QList<QSslError> &sslErrors)
+void ImageFetcher::sslErrors(const QList<QSslError> &sslErrors)
 {
 #if QT_CONFIG(ssl)
   for (const QSslError &error : sslErrors)
@@ -60,31 +70,27 @@ QString ImageProcessor::urlFileName(const QUrl &url)
   return url.fileName();
 }
 
-void ImageProcessor::ready(const QUrl &url, const QString &hash)
+/*void ImageProcessor::ready(const QUrl &url, const QString &hash)
 {
   emit imageReady(hash, url);
-}
+}*/
 
-bool ImageProcessorWorker::isHttpRedirect(QNetworkReply *reply)
+bool ImageFetcher::isHttpRedirect(QNetworkReply *reply)
 {
   int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
   return statusCode == 301 || statusCode == 302 || statusCode == 303
       || statusCode == 305 || statusCode == 307 || statusCode == 308;
 }
 
-ImageProcessorWorker::ImageProcessorWorker(QObject *parent) : QObject(parent), manager(this)
+ImageFetcher::ImageFetcher(QObject *parent) : QObject(parent), manager(this)
 {
   connect(&manager, SIGNAL(finished(QNetworkReply*)),
           SLOT(downloadFinished(QNetworkReply*)));
 }
 
-void ImageProcessorWorker::startDownload(const QUrl &url)
+void ImageFetcher::startDownload(const QUrl &url)
 {
-  /*if(manager == nullptr) {
-    manager = new QNetworkAccessManager(this);
-    connect(manager, SIGNAL(finished(QNetworkReply*)),
-            SLOT(downloadFinished(QNetworkReply*)));
-  }*/
+  qDebug() << __FUNCTION__;
 
   QNetworkRequest req(url);
   QNetworkReply *reply = manager.get(req);
@@ -94,8 +100,10 @@ void ImageProcessorWorker::startDownload(const QUrl &url)
 #endif
 }
 
-void ImageProcessorWorker::downloadFinished(QNetworkReply *reply)
+void ImageFetcher::downloadFinished(QNetworkReply *reply)
 {
+  qDebug() << __FUNCTION__;
+
   QUrl url = reply->url();
   if (reply->error()) {
     qWarning("Download of %s failed: %s",
@@ -106,15 +114,27 @@ void ImageProcessorWorker::downloadFinished(QNetworkReply *reply)
       qInfo("Request was redirected.");
     } else {
       QByteArray bytes = reply->readAll();
-      QByteArray hashBytes = QCryptographicHash::hash(bytes, QCryptographicHash::Sha256);
-      QString hashString(hashBytes.toHex());
-
-      ImageDao *tip = ImageDao::instance();
-      tip->insert(hashString, bytes);
-
-      emit ready(url, hashString);
+      emit downloadComplete(url, bytes);
     }
   }
 
   reply->deleteLater();
+}
+
+ImageDatabaseWriter::ImageDatabaseWriter(QObject *parent) : QObject(parent)
+{
+
+}
+
+void ImageDatabaseWriter::startWrite(const QUrl &url, const QByteArray &data)
+{
+  qDebug() << __FUNCTION__;
+
+  QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
+  QString hashString(hashBytes.toHex());
+
+  ImageDao *tip = ImageDao::instance();
+  tip->insert(hashString, data);
+
+  emit writeComplete(url, hashString);
 }

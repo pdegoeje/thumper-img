@@ -7,27 +7,38 @@
 #include <QQueue>
 #include <QThread>
 
-class ImageProcessorWorker : public QObject {
+class ImageFetcher : public QObject {
   Q_OBJECT
 
   QNetworkAccessManager manager;
   bool isHttpRedirect(QNetworkReply *reply);
 public:
-  ImageProcessorWorker(QObject *parent = nullptr);
+  ImageFetcher(QObject *parent = nullptr);
 public slots:
   void startDownload(const QUrl &url);
 private slots:
   void downloadFinished(QNetworkReply *reply);
   void sslErrors(const QList<QSslError> &sslErrors);
 signals:
-  void ready(const QUrl &url, const QString &hash);
+  void downloadComplete(const QUrl &url, const QByteArray &data);
+};
+
+class ImageDatabaseWriter : public QObject {
+  Q_OBJECT
+public:
+  ImageDatabaseWriter(QObject *parent = nullptr);
+public slots:
+  void startWrite(const QUrl &url, const QByteArray &data);
+signals:
+  void writeComplete(const QUrl &url, const QString &hash);
 };
 
 class ImageProcessor : public QObject
 {
   Q_OBJECT
 
-  QThread m_workerThread;
+  QThread m_downloadThread;
+  QThread m_writeThread;
 public:
   explicit ImageProcessor(QObject *parent = nullptr);
   virtual ~ImageProcessor();
@@ -37,10 +48,10 @@ public:
   Q_INVOKABLE void downloadList(const QList<QUrl> &urls);
   Q_INVOKABLE QString urlFileName(const QUrl &url);
 signals:
-  void imageReady(const QString &hash, const QUrl &url);
+  void imageReady(const QUrl &url, const QString &hash);
   void startDownload(const QUrl &url);
-public slots:
-  void ready(const QUrl &url, const QString &hash);
+//public slots:
+//  void ready(const QUrl &url, const QString &hash);
 };
 
 #endif // IMAGEPROCESSOR_H
