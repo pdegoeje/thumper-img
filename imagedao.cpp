@@ -94,10 +94,7 @@ error:
 ImageDao::~ImageDao()
 {
   m_connPool.close(m_conn);
-  //m_ps_removeTag.destroy();
-  //m_ps_addTag.destroy();
-
-  sqlite3_close(m_db);
+  qInfo(__FUNCTION__);
 }
 
 void ImageDao::addTag(ImageRef *iref, const QString &tag) {
@@ -429,4 +426,15 @@ SQLiteConnection::SQLiteConnection(const QString &dbname, int flags)
 SQLiteConnection::~SQLiteConnection()
 {
   sqlite3_close_v2(m_db);
+}
+
+bool SQLiteConnection::exec(const char *sql, const char *debug_str)
+{
+  char *errmsg;
+  if(sqlite3_exec(m_db, sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
+    qWarning("Failed to exec (%s): %s", errmsg);
+    return false;
+  }
+
+  return true;
 }

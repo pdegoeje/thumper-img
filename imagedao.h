@@ -35,6 +35,8 @@ struct SQLiteConnection {
 
   SQLiteConnection(const QString &dbname, int flags);
   ~SQLiteConnection();
+
+  bool exec(const char *sql, const char *debug_str = nullptr);
 };
 
 struct SQLiteConnectionPool {
@@ -117,6 +119,8 @@ class ImageDao : public QObject
 public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
+
+  SQLiteConnectionPool *connPool() { return &m_connPool; }
 
   Q_INVOKABLE void addTag(ImageRef *iref, const QString &tag);
   Q_INVOKABLE void removeTag(ImageRef *iref, const QString &tag);

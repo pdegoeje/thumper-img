@@ -31,10 +31,12 @@ ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 ImageProcessor::~ImageProcessor()
 {
   m_downloadThread.quit();
-  m_downloadThread.wait();
-
   m_writeThread.quit();
+
+  m_downloadThread.wait();
   m_writeThread.wait();
+
+  qInfo(__FUNCTION__);
 }
 
 void ImageProcessor::setClipBoard(const QString &data) {
@@ -70,11 +72,6 @@ QString ImageProcessor::urlFileName(const QUrl &url)
   return url.fileName();
 }
 
-/*void ImageProcessor::ready(const QUrl &url, const QString &hash)
-{
-  emit imageReady(hash, url);
-}*/
-
 bool ImageFetcher::isHttpRedirect(QNetworkReply *reply)
 {
   int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -90,20 +87,18 @@ ImageFetcher::ImageFetcher(QObject *parent) : QObject(parent), manager(this)
 
 void ImageFetcher::startDownload(const QUrl &url)
 {
-  qDebug() << __FUNCTION__;
-
   QNetworkRequest req(url);
   QNetworkReply *reply = manager.get(req);
+
 #if QT_CONFIG(ssl)
   connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
           SLOT(sslErrors(QList<QSslError>)));
 #endif
+
 }
 
 void ImageFetcher::downloadFinished(QNetworkReply *reply)
 {
-  qDebug() << __FUNCTION__;
-
   QUrl url = reply->url();
   if (reply->error()) {
     qWarning("Download of %s failed: %s",
@@ -121,20 +116,46 @@ void ImageFetcher::downloadFinished(QNetworkReply *reply)
   reply->deleteLater();
 }
 
-ImageDatabaseWriter::ImageDatabaseWriter(QObject *parent) : QObject(parent)
+ImageDatabaseWriter::ImageDatabaseWriter(QObject *parent) : QObject(parent), timer(this)
 {
+  timer.setInterval(0);
+  timer.setSingleShot(true);
 
+  connect(&timer, &QTimer::timeout, this, &ImageDatabaseWriter::drainQueue);
 }
 
 void ImageDatabaseWriter::startWrite(const QUrl &url, const QByteArray &data)
 {
-  qDebug() << __FUNCTION__;
+  writeQueue.append({ url, data, {}});
+  if(!timer.isActive())
+    timer.start();
+}
 
-  QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
-  QString hashString(hashBytes.toHex());
+void ImageDatabaseWriter::drainQueue()
+{
+  SQLiteConnectionPool *pool = ImageDao::instance()->connPool();
+  SQLiteConnection *conn = pool->open();
+  SQLitePreparedStatement ps;
+  ps.init(conn->m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
 
-  ImageDao *tip = ImageDao::instance();
-  tip->insert(hashString, data);
+  conn->exec("BEGIN TRANSACTION", __FUNCTION__);
 
-  emit writeComplete(url, hashString);
+  for(ImageData &id : writeQueue) {
+    QByteArray hashBytes = QCryptographicHash::hash(id.data, QCryptographicHash::Sha256);
+    id.hash = hashBytes.toHex();
+    ps.bind(1, id.hash);
+    ps.bind(2, id.data);
+    ps.step(__FUNCTION__);
+    ps.reset();
+  }
+
+  ps.destroy();
+  conn->exec("END TRANSACTION", __FUNCTION__);
+  pool->close(conn);
+
+  for(ImageData &id : writeQueue) {
+    emit writeComplete(id.url, id.hash);
+  }
+
+  writeQueue.clear();
 }

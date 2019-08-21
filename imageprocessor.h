@@ -6,6 +6,13 @@
 #include <QNetworkAccessManager>
 #include <QQueue>
 #include <QThread>
+#include <QTimer>
+
+struct ImageData {
+  QUrl url;
+  QByteArray data;
+  QString hash;
+};
 
 class ImageFetcher : public QObject {
   Q_OBJECT
@@ -25,10 +32,15 @@ signals:
 
 class ImageDatabaseWriter : public QObject {
   Q_OBJECT
+
+  QQueue<ImageData> writeQueue;
+  QTimer timer;
 public:
   ImageDatabaseWriter(QObject *parent = nullptr);
 public slots:
   void startWrite(const QUrl &url, const QByteArray &data);
+private slots:
+  void drainQueue();
 signals:
   void writeComplete(const QUrl &url, const QString &hash);
 };
@@ -50,8 +62,6 @@ public:
 signals:
   void imageReady(const QUrl &url, const QString &hash);
   void startDownload(const QUrl &url);
-//public slots:
-//  void ready(const QUrl &url, const QString &hash);
 };
 
 #endif // IMAGEPROCESSOR_H
