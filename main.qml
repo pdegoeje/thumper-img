@@ -356,7 +356,6 @@ ApplicationWindow {
 
     Keys.onSpacePressed: {
       lightboxLoader.active = true
-      event.accepted = true
     }
 
     Keys.onPressed: {

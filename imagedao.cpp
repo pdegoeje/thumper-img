@@ -151,9 +151,6 @@ QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
 }
 
 QList<QObject *> ImageDao::search(const QList<QObject *> &irefs, const QStringList &tags) {
-  //QElapsedTimer timer;
-  //timer.start();
-
   QSet<QString> searchTags = QSet<QString>::fromList(tags);
 
   QList<QObject *> result;
@@ -163,8 +160,6 @@ QList<QObject *> ImageDao::search(const QList<QObject *> &irefs, const QStringLi
       result.append(ir);
     }
   }
-
-  //qDebug() << __FUNCTION__ << timer.elapsed() << "ms";
 
   return result;
 }

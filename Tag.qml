@@ -12,6 +12,7 @@ Button {
   property int count
 
   text: "%1 (%2)".arg(tag).arg(count)
+  focusPolicy: Qt.NoFocus
 
   font.capitalization: Font.MixedCase
 
