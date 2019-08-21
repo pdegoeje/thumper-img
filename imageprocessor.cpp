@@ -72,21 +72,22 @@ bool ImageProcessorWorker::isHttpRedirect(QNetworkReply *reply)
       || statusCode == 305 || statusCode == 307 || statusCode == 308;
 }
 
-ImageProcessorWorker::ImageProcessorWorker(QObject *parent) : QObject(parent)
+ImageProcessorWorker::ImageProcessorWorker(QObject *parent) : QObject(parent), manager(this)
 {
-
+  connect(&manager, SIGNAL(finished(QNetworkReply*)),
+          SLOT(downloadFinished(QNetworkReply*)));
 }
 
 void ImageProcessorWorker::startDownload(const QUrl &url)
 {
-  if(manager == nullptr) {
+  /*if(manager == nullptr) {
     manager = new QNetworkAccessManager(this);
     connect(manager, SIGNAL(finished(QNetworkReply*)),
             SLOT(downloadFinished(QNetworkReply*)));
-  }
+  }*/
 
   QNetworkRequest req(url);
-  QNetworkReply *reply = manager->get(req);
+  QNetworkReply *reply = manager.get(req);
 #if QT_CONFIG(ssl)
   connect(reply, SIGNAL(sslErrors(QList<QSslError>)),
           SLOT(sslErrors(QList<QSslError>)));

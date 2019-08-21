@@ -5,20 +5,12 @@
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QQueue>
-#include <QTimer>
 #include <QThread>
-#include <QThreadPool>
-
-struct ImageBuffer {
-  QUrl url;
-  QString hash;
-  QByteArray data;
-};
 
 class ImageProcessorWorker : public QObject {
   Q_OBJECT
 
-  QNetworkAccessManager *manager = nullptr;
+  QNetworkAccessManager manager;
   bool isHttpRedirect(QNetworkReply *reply);
 public:
   ImageProcessorWorker(QObject *parent = nullptr);
