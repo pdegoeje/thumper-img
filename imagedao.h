@@ -105,7 +105,6 @@ class ImageDao : public QObject
 
   sqlite3 *m_db = nullptr;
 
-  SQLitePreparedStatement m_ps_insert;
   SQLitePreparedStatement m_ps_addTag;
   SQLitePreparedStatement m_ps_removeTag;
   SQLitePreparedStatement m_ps_tagsById;
@@ -141,7 +140,6 @@ public:
   Q_INVOKABLE qint64 timerElapsed() { return m_timer.elapsed(); }
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
-  void insert(const QString &hash, const QByteArray &data);
 
   static ImageDao *instance();
 private:

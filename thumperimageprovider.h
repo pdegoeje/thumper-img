@@ -3,6 +3,8 @@
 
 #include <QQuickImageProvider>
 #include <QThreadPool>
+#include <QCache>
+#include <QMutex>
 
 class AsyncImageResponse : public QQuickImageResponse, public QRunnable
 {

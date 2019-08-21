@@ -71,7 +71,6 @@ ImageDao::ImageDao(QObject *parent) :
 
   createTemporaryTable("search", {});
 
-  m_ps_insert.init(m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
   m_ps_allTagCount.init(m_db, "SELECT tag, count(id) FROM tag GROUP BY tag ORDER BY tag");
 
@@ -293,20 +292,6 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
 
   return result;
 }
-
-void ImageDao::insert(const QString &hash, const QByteArray &data)
-{
-  SQLiteConnection *conn = m_connPool.open();
-  SQLitePreparedStatement ps;
-  ps.init(conn->m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
-  ps.bind(1, hash);
-  ps.bind(2, data);
-  ps.step(__FUNCTION__);
-  ps.reset();
-  ps.destroy();
-  m_connPool.close(conn);
-}
-
 
 ImageDao *ImageDao::instance()
 {

@@ -333,9 +333,7 @@ ApplicationWindow {
         source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
-
-        opacity: (view.status == Image.Ready) ? ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1) : 0
-
+        opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
         }
@@ -354,7 +352,7 @@ ApplicationWindow {
           }
 
           sourceComponent: CheckBox {
-            opacity: (list.isScrolling || perItemUILoader.beforeLoad) ? 0 : 1
+            opacity: (list.isScrolling || perItemUILoader.beforeLoad || !toolbar.visible) ? 0 : 1
 
             focusPolicy: Qt.NoFocus
             checked: delegateItem.image.selected
