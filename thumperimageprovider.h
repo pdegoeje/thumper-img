@@ -22,11 +22,7 @@ public:
 
 class ThumperAsyncImageProvider : public QQuickAsyncImageProvider {
 public:
-  ThumperAsyncImageProvider();
   QQuickImageResponse *requestImageResponse(const QString &id, const QSize &requestedSize) override;
-
-private:
-  QThreadPool m_threadPool;
 };
 
 #endif // THUMPERIMAGEPROVIDER_H

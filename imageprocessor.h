@@ -7,6 +7,7 @@
 #include <QQueue>
 #include <QTimer>
 #include <QThread>
+#include <QThreadPool>
 
 struct ImageBuffer {
   QUrl url;

@@ -25,14 +25,9 @@ void AsyncImageResponse::cancel()
   m_cancelled = true;
 }
 
-ThumperAsyncImageProvider::ThumperAsyncImageProvider()
-{
-
-}
-
 QQuickImageResponse *ThumperAsyncImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
   AsyncImageResponse *response = new AsyncImageResponse(id.toLongLong(), requestedSize);
-  m_threadPool.start(response);
+  QThreadPool::globalInstance()->start(response);
   return response;
 }
