@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QElapsedTimer>
 
 #include "sqlite3.h"
 
@@ -111,6 +112,8 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
   SQLitePreparedStatement m_ps_allTagCount;
+
+  QElapsedTimer m_timer;
 public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
@@ -129,6 +132,9 @@ public:
 
   Q_INVOKABLE void transactionStart();
   Q_INVOKABLE void transactionEnd();
+
+  Q_INVOKABLE void timerStart() { m_timer.start(); }
+  Q_INVOKABLE qint64 timerElapsed() { return m_timer.elapsed(); }
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
   void insert(const QString &hash, const QByteArray &data);

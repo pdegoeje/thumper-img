@@ -3,6 +3,7 @@ import QtQuick.Window 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.3
 import QtQuick.Controls.Material 2.12
+import QtQml 2.12
 import thumper 1.0
 
 ApplicationWindow {
@@ -46,32 +47,29 @@ ApplicationWindow {
   function rebuildTagModels() {
     selectionTagCount = ImageDao.tagCount(selectionModel)
     viewTagCount = ImageDao.tagCount(viewModelSimpleList)
-    allTagCount = ImageDao.allTagCount()
+    allTagCount = ImageDao.tagCount(allSimpleList)
   }
 
   function rebuildSelectionModel() {
-    var newModel = []
-    for(var i = 0; i < viewModel.count; i++) {
-      var ref = viewModel.get(i).ref
-      if(ref.selected) {
-        newModel.push(ref)
-      }
-    }
-    selectionModel = newModel
+    selectionModel = viewModelSimpleList.filter(function(ref) { return ref.selected })
   }
 
   function viewClear() {
-    //console.log("viewClear")
     viewIdToIndexMap = ({})
     viewModel.clear()
     viewModelSimpleList = []
   }
 
-  function viewAppend(ref) {
-    //console.log("viewAppend", ref, ref.fileId, ref.selected, ref.tags)
-    viewIdToIndexMap[ref.fileId] = viewModel.count
-    viewModel.append({ 'ref' : ref })
-    viewModelSimpleList.push(ref)
+  function viewAppendMultiple(refList) {
+    var modelRefList = []
+    for(var i = 0; i < refList.length; i++) {
+      var ref = refList[i]
+      viewIdToIndexMap[ref.fileId] = viewModelSimpleList.length
+      viewModelSimpleList.push(ref)
+      modelRefList.push({ 'ref' : ref })
+    }
+
+    viewModel.append(modelRefList)
   }
 
   ImageProcessor {
@@ -100,7 +98,7 @@ ApplicationWindow {
       }
 
       allSimpleList.push(ref)
-      viewAppend(ref)
+      viewAppendMultiple([ref])
     }
   }
 
@@ -112,11 +110,14 @@ ApplicationWindow {
       refList = allSimpleList
     }   
 
+    // force the view to reset, this is a performance optimization
+    list.model = undefined
+
     viewClear()
-    for(var i in refList) {
-      viewAppend(refList[i])
-    }
+    viewAppendMultiple(refList)
     rebuildSelectionModel()
+
+    list.model = viewModel
   }
 
   header: ToolBar {
@@ -302,10 +303,17 @@ ApplicationWindow {
     pixelAligned: false
     interactive: true
 
-    ScrollBar.vertical: ScrollBar { }
+    property bool isScrolling: false
+
+    onFlickStarted: isScrolling = true
+    onFlickEnded: isScrolling = false
+
+    ScrollBar.vertical: ScrollBar {
+      onPressedChanged: list.isScrolling = pressed
+    }
 
     delegate: Item {
-      id: item
+      id: delegateItem
       width: list.cellWidth
       height: list.cellHeight
 
@@ -323,25 +331,50 @@ ApplicationWindow {
         cache: true
         mipmap: false
         smooth: true
-        source: "image://thumper/" + item.image.fileId
+        source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
 
-        opacity: (status == Image.Ready) ? ((selectionModel.length > 0 && !item.image.selected) ? 0.4 : 1) : 0
+        //opacity:
 
-        Behavior on opacity {
-          NumberAnimation { duration: 100 }
+        Binding {
+          target: view
+          property: 'opacity'
+          value: (view.status == Image.Ready) ? ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.4 : 1) : 0
+          delayed: true
         }
 
-        CheckBox {
-          visible: toolbar.visible
-          id: theCheck
-          focusPolicy: Qt.NoFocus
-          checked: item.image.selected
-          onClicked: {
-            if(item.image.selected != checked) {
-              item.image.selected = checked
-              rebuildSelectionModel()
+        Behavior on opacity {
+          //NumberAnimation { duration: 100 }
+          OpacityAnimator { duration: 100 }
+        }
+
+        // don't even bother loading if the image isn't ready for display
+        Loader {
+          id: perItemUILoader
+
+          active: false
+          property bool shouldProbablyLoad: view.status == Image.Ready && toolbar.visible && !list.isScrolling
+          property bool beforeLoad: true
+
+          onShouldProbablyLoadChanged: {
+            active = true
+            beforeLoad = false
+          }
+
+          sourceComponent: CheckBox {
+            opacity: (list.isScrolling || perItemUILoader.beforeLoad) ? 0 : 1
+
+            focusPolicy: Qt.NoFocus
+            checked: delegateItem.image.selected
+            onClicked: {
+              if(delegateItem.image.selected != checked) {
+                delegateItem.image.selected = checked
+                rebuildSelectionModel()
+              }
+            }
+            Behavior on opacity {
+              OpacityAnimator { duration: 150 }
             }
           }
         }
@@ -369,7 +402,7 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.ControlModifier
           onTapped: {
-            item.image.selected = !item.image.selected
+            delegateItem.image.selected = !delegateItem.image.selected
             rebuildSelectionModel()
           }
         }
