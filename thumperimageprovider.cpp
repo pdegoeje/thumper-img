@@ -46,15 +46,15 @@ QQuickTextureFactory *AsyncImageResponse::textureFactory() const
 void AsyncImageResponse::run()
 {
   if(!m_cancelled) {    
-    m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize, &m_cancelled);
-    /*
+    //m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize, &m_cancelled);
+
     m_image = cacheFetch(m_id, m_requestedSize);
     if(m_image.isNull()) {
       m_image = ImageDao::instance()->requestImage(m_id, m_requestedSize, &m_cancelled);
       if(!m_image.isNull()) {
         cacheInsert(m_id, m_requestedSize, m_image);
       }
-    }*/
+    }
   }
   emit finished();
 }
@@ -66,7 +66,7 @@ void AsyncImageResponse::cancel()
 
 QQuickImageResponse *ThumperAsyncImageProvider::requestImageResponse(const QString &id, const QSize &requestedSize)
 {
-  AsyncImageResponse *response = new AsyncImageResponse(id.toLongLong(), requestedSize);
-  QThreadPool::globalInstance()->start(response);
+  AsyncImageResponse *response = new AsyncImageResponse(id.toLongLong(), requestedSize);  
+  m_imageLoadPool.start(response);
   return response;
 }

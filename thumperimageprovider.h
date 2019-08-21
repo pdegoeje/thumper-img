@@ -23,6 +23,8 @@ public:
 };
 
 class ThumperAsyncImageProvider : public QQuickAsyncImageProvider {
+private:
+  QThreadPool m_imageLoadPool;
 public:
   QQuickImageResponse *requestImageResponse(const QString &id, const QSize &requestedSize) override;
 };
