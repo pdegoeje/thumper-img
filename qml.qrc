@@ -5,5 +5,7 @@
         <file>qtquickcontrols2.conf</file>
         <file>TagSelection.qml</file>
         <file>TagList.qml</file>
+        <file>Settings.qml</file>
+        <file>baseline_settings_white_18dp.png</file>
     </qresource>
 </RCC>

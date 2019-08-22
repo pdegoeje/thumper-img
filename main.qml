@@ -11,9 +11,9 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.3.0"
+  title: "Thumper 1.4.0"
 
-  property string pathPrefix: pathPrefixField.text
+  property string pathPrefix: "./"
   property int imagesPerRow: 6
   property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
   property int imageHeight: imageWidth * aspectRatio
@@ -24,7 +24,7 @@ ApplicationWindow {
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
-  property alias autoTagging: autoTagCheckbox.checked
+  property bool autoTagging: false
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -34,7 +34,6 @@ ApplicationWindow {
   property var allSimpleList: ImageDao.all()
 
   property var selectionModel: []
-
 
   property var selectionTagCount: []
   property var viewTagCount: []
@@ -215,29 +214,14 @@ ApplicationWindow {
           cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
         }
       }
-      CheckBox {
-        id: autoTagCheckbox
-        text: "Autotag"
-      }
-
-      Label {
-        text: "Export path"
-      }
-
-      TextField {
-        id: pathPrefixField
-        text: "./"
-        selectByMouse: true
-      }
-      ComboBox {
-        Layout.preferredWidth: 150
-        model: renderModel
-        displayText: "Export %1px".arg(currentText)
-        currentIndex: renderModel.indexOf(actualSize)
-        onActivated: {
-          actualSize = currentText
+      ToolButton {
+        icon.source: "baseline_settings_white_18dp.png"
+        onClicked: {
+          settingsLoader.active = true
+          settingsLoader.item.open()
         }
       }
+
       Item { Layout.fillWidth: true }
     }
   }
@@ -595,6 +579,14 @@ ApplicationWindow {
           }
         }
       }
+    }
+  }
+
+  Loader {
+    id: settingsLoader
+    active: false
+    sourceComponent: Settings {
+      onClosed: settingsLoader.active = false
     }
   }
 
