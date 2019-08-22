@@ -124,6 +124,7 @@ public:
   Q_INVOKABLE bool addTag(ImageRef *iref, const QString &tag);
   Q_INVOKABLE bool removeTag(ImageRef *iref, const QString &tag);
 
+  Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList allTagCount();
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);

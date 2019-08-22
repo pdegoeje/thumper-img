@@ -265,12 +265,12 @@ ApplicationWindow {
     cache: true
     fillMode: Image.PreserveAspectFit
 
-    property string fileId
+    property int fileId
 
     onStatusChanged: if(status == Image.Ready) {
       offscreen.grabToImage(function(result) {
-        console.log(result.url)
-        var path = pathPrefix + fileId + ".jpg"
+        var hash = ImageDao.hashById(fileId)
+        var path = pathPrefix + hash + ".jpg"
         console.log("Saved to: " + path)
         processor.setClipBoard(fileId)
         result.saveToFile(path);
@@ -410,7 +410,7 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.AltModifier
           onTapped: {
-            offscreen.fileId = fileId
+            offscreen.fileId = delegateItem.image.fileId
             offscreen.source = view.source
           }
         }

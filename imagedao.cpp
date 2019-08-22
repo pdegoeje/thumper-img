@@ -118,6 +118,15 @@ bool ImageDao::removeTag(ImageRef *iref, const QString &tag) {
   return true;
 }
 
+QString ImageDao::hashById(qint64 id)
+{
+  SQLitePreparedStatement ps;
+  ps.init(m_db, "SELECT hash FROM store WHERE id = ?1");
+  ps.bind(1, id);
+  ps.step(__FUNCTION__);
+  return ps.resultString(0);
+}
+
 QVariantList ImageDao::allTagCount()
 {
   QVariantList result;
@@ -418,7 +427,7 @@ bool SQLiteConnection::exec(const char *sql, const char *debug_str)
 {
   char *errmsg;
   if(sqlite3_exec(m_db, sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
-    qWarning("Failed to exec (%s): %s", errmsg);
+    qWarning("Failed to exec (%s): %s", debug_str, errmsg);
     return false;
   }
 
