@@ -39,9 +39,9 @@ Popup {
         Layout.preferredWidth: 150
         model: renderModel
         displayText: "%1px".arg(currentText)
-        currentIndex: renderModel.indexOf(actualSize)
+        currentIndex: renderModel.indexOf(renderSize)
         onActivated: {
-          actualSize = currentText
+          renderSize = currentText
         }
       }
     }

@@ -7,5 +7,6 @@
         <file>TagList.qml</file>
         <file>Settings.qml</file>
         <file>baseline_settings_white_18dp.png</file>
+        <file>Lightbox.qml</file>
     </qresource>
 </RCC>

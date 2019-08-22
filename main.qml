@@ -15,12 +15,12 @@ ApplicationWindow {
 
   property string pathPrefix: "./"
   property int imagesPerRow: 6
+  property var imagesPerRowModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
   property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
   property int imageHeight: imageWidth * aspectRatio
   property int spacing: 8
-  property int actualSize: 531
+  property int renderSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var sizeModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
   property real aspectRatio: 1.5
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
@@ -189,9 +189,9 @@ ApplicationWindow {
 
       ComboBox {
         Layout.preferredWidth: 150
-        model: sizeModel
+        model: imagesPerRowModel
         displayText: "%1 Columns".arg(currentText)
-        currentIndex: sizeModel.indexOf(imagesPerRow)
+        currentIndex: imagesPerRowModel.indexOf(imagesPerRow)
         onActivated: {
           imagesPerRow = currentText
         }
@@ -259,9 +259,9 @@ ApplicationWindow {
   Image {
     id: offscreen    
     visible: false
-    width: actualSize
-    height: actualSize
-    sourceSize: Qt.size(actualSize, actualSize)
+    width: renderSize
+    height: renderSize
+    sourceSize: Qt.size(renderSize, renderSize)
     cache: true
     fillMode: Image.PreserveAspectFit
 
@@ -340,6 +340,7 @@ ApplicationWindow {
 
     Keys.onSpacePressed: {
       lightboxLoader.active = true
+      lightboxLoader.item.open()
     }
 
     Keys.onPressed: {
@@ -423,6 +424,7 @@ ApplicationWindow {
 
           onDoubleTapped: {
             lightboxLoader.active = true
+            lightboxLoader.item.open()
           }
         }
 
@@ -515,70 +517,8 @@ ApplicationWindow {
     id: lightboxLoader
     active: false
 
-    sourceComponent: Popup {
-      id: lightbox
-
-      Shortcut {
-        sequence: "Escape"
-        onActivated: close()
-      }
-
-      Shortcut {
-        sequence: "Space"
-        onActivated: close()
-      }
-
-      property ImageRef image: viewModel.get(list.currentIndex).ref
-
-      parent: Overlay.overlay
-      anchors.centerIn: Overlay.overlay
-      modal: true
-      dim: true
-      visible: true
-
-      padding: 0
-
+    sourceComponent: Lightbox {
       onClosed: lightboxLoader.active = false
-
-      Overlay.modeless: Rectangle {
-        color: '#99101010'
-        Behavior on opacity { NumberAnimation { duration: 150 } }
-      }
-
-      background: Item {
-        MouseArea {
-          anchors.fill: parent
-          onClicked: lightbox.close()
-        }
-      }
-
-      Item {
-        implicitWidth: content.paintedWidth
-        implicitHeight: content.paintedHeight
-
-        Image {
-          id: content
-
-          asynchronous: true
-
-          anchors.centerIn: parent
-
-          sourceSize.width: root.width - 40
-          sourceSize.height: root.height - 40
-
-          opacity: (status == Image.Ready) ? 1 : 0
-
-          smooth: true
-          width: sourceSize.width
-          height: sourceSize.height
-          fillMode: Image.PreserveAspectFit
-          source: "image://thumper/" + lightbox.image.fileId
-
-          Behavior on opacity {
-            NumberAnimation { duration: 100 }
-          }
-        }
-      }
     }
   }
 
