@@ -118,10 +118,41 @@ bool ImageDao::removeTag(ImageRef *iref, const QString &tag) {
   return true;
 }
 
+QList<QObject *> ImageDao::addTagMultiple(const QList<QObject *> &irefs, const QString &tag)
+{
+  QList<QObject *> result;
+  transactionStart();
+
+  for(QObject *obj : irefs) {
+    auto iref = qobject_cast<ImageRef *>(obj);
+    if(addTag(iref, tag)) {
+      result.append(iref);
+    }
+  }
+
+  transactionEnd();
+  return result;
+}
+
+QList<QObject *> ImageDao::removeTagMultiple(const QList<QObject *> &irefs, const QString &tag)
+{
+  QList<QObject *> result;
+  transactionStart();
+
+  for(QObject *obj : irefs) {
+    auto iref = qobject_cast<ImageRef *>(obj);
+    if(removeTag(iref, tag)) {
+      result.append(iref);
+    }
+  }
+
+  transactionEnd();
+  return result;
+}
+
 QString ImageDao::hashById(qint64 id)
 {
-  SQLitePreparedStatement ps;
-  ps.init(m_db, "SELECT hash FROM store WHERE id = ?1");
+  SQLitePreparedStatement ps(m_conn, "SELECT hash FROM store WHERE id = ?1");
   ps.bind(1, id);
   ps.step(__FUNCTION__);
   return ps.resultString(0);
@@ -239,6 +270,16 @@ void ImageDao::transactionStart()
 void ImageDao::transactionEnd()
 {
   m_ps_transEnd.exec();
+}
+
+void ImageDao::lockWrite()
+{
+  m_writeLock.lock();
+}
+
+void ImageDao::unlockWrite()
+{
+  m_writeLock.unlock();
 }
 
 QStringList ImageDao::tagsById(qint64 id)
@@ -404,6 +445,11 @@ void SQLitePreparedStatement::destroy()
   m_stmt = nullptr;
 }
 
+SQLitePreparedStatement::SQLitePreparedStatement(SQLiteConnection *conn, const char *sql)
+{
+  init(conn->m_db, sql);
+}
+
 QStringList ImageRef::tags()
 {
   return m_tags.toList();
@@ -412,7 +458,7 @@ QStringList ImageRef::tags()
 SQLiteConnection::SQLiteConnection(const QString &dbname, int flags)
 {
   if(sqlite3_open_v2(qUtf8Printable(dbname), &m_db, flags, nullptr) != SQLITE_OK) {
-    qWarning("Coudln't open SQLite database: %s", sqlite3_errmsg(m_db));
+    qWarning("Couldn't open SQLite database: %s", sqlite3_errmsg(m_db));
   }
 
   qInfo("Created new connection to %s", qUtf8Printable(dbname));

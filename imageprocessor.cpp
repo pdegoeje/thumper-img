@@ -133,11 +133,14 @@ void ImageDatabaseWriter::startWrite(const QUrl &url, const QByteArray &data)
 
 void ImageDatabaseWriter::drainQueue()
 {
-  SQLiteConnectionPool *pool = ImageDao::instance()->connPool();
+  ImageDao *dao = ImageDao::instance();
+
+  SQLiteConnectionPool *pool = dao->connPool();
   SQLiteConnection *conn = pool->open();
   SQLitePreparedStatement ps;
   ps.init(conn->m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
 
+  dao->lockWrite();
   conn->exec("BEGIN TRANSACTION", __FUNCTION__);
 
   for(ImageData &id : writeQueue) {
@@ -152,6 +155,7 @@ void ImageDatabaseWriter::drainQueue()
   ps.destroy();
   conn->exec("END TRANSACTION", __FUNCTION__);
   pool->close(conn);
+  dao->unlockWrite();
 
   for(ImageData &id : writeQueue) {
     emit writeComplete(id.url, id.hash);

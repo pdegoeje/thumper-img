@@ -76,10 +76,10 @@ ApplicationWindow {
   function actionAddTag(refList, tag, record = true) {
     var actionList = []
 
-    ImageDao.transactionStart()
-    actionList = selectionModel.filter(function(ref) { return ImageDao.addTag(ref, tag) })
+    ImageDao.lockWrite();
+    actionList = ImageDao.addTagMultiple(refList, tag)
+    ImageDao.unlockWrite();
     rebuildTagModels()
-    ImageDao.transactionEnd()
 
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
@@ -92,10 +92,10 @@ ApplicationWindow {
   function actionRemoveTag(refList, tag, record = true) {
     var actionList = []
 
-    ImageDao.transactionStart()
-    actionList = selectionModel.filter(function(ref) { return ImageDao.removeTag(ref, tag) })
+    ImageDao.lockWrite();
+    actionList = ImageDao.removeTagMultiple(refList, tag);
+    ImageDao.unlockWrite();
     rebuildTagModels()
-    ImageDao.transactionEnd()
 
     console.log("Removed tag", tag, "from", actionList.length, "image(s)")
 
@@ -113,7 +113,7 @@ ApplicationWindow {
     onImageReady: {
       var ref = ImageDao.findHash(hash)
       var fileName = urlFileName(url)
-      var regex = /^([a-zA-Z-_]+)[0-9]*\.(\w+)$/
+      var regex = /^([a-zA-Z-_ ]+)[0-9]*\.(\w+)$/
       if(autoTagging && regex.test(fileName)) {
         var result = fileName.match(regex)
 
@@ -125,11 +125,13 @@ ApplicationWindow {
         var foundTags = basename.match(word)
 
         console.log("Tags found", foundTags)
+        ImageDao.lockWrite()
         ImageDao.transactionStart()
         for(var i in foundTags) {
           ImageDao.addTag(ref, foundTags[i])
         }
         ImageDao.transactionEnd()
+        ImageDao.unlockWrite()
       }
 
       allSimpleList.push(ref)
@@ -179,6 +181,7 @@ ApplicationWindow {
       }
 
       TagList {
+        Layout.fillWidth: true
         model: allTagCount
         checkable: true
         onClicked: {
@@ -221,8 +224,6 @@ ApplicationWindow {
           settingsLoader.item.open()
         }
       }
-
-      Item { Layout.fillWidth: true }
     }
   }
 
@@ -469,6 +470,8 @@ ApplicationWindow {
       }
 
       TagList {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 250
         model: selectionTagCount
         //backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
 
@@ -477,10 +480,6 @@ ApplicationWindow {
           actionRemoveTag(selectionModel, tag)
         }
 
-      }
-
-      Item {
-        Layout.fillWidth: true
       }
 
       Button {
@@ -505,6 +504,8 @@ ApplicationWindow {
       }
 
       TagList {
+        Layout.fillWidth: true
+        Layout.preferredWidth: 250
         model: allTagCount
         onClicked: {
           actionAddTag(selectionModel, tag)

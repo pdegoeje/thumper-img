@@ -12,6 +12,8 @@
 
 struct sqlite3;
 
+struct SQLiteConnection;
+
 struct SQLitePreparedStatement {
   sqlite3_stmt *m_stmt = nullptr;
 
@@ -27,6 +29,8 @@ struct SQLitePreparedStatement {
   void clear();
   void destroy();
 
+  SQLitePreparedStatement() { }
+  SQLitePreparedStatement(SQLiteConnection *conn, const char *sql);
   ~SQLitePreparedStatement() { destroy(); }
 };
 
@@ -115,6 +119,7 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_allTagCount;
 
   QElapsedTimer m_timer;
+  QMutex m_writeLock;
 public:
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
@@ -123,6 +128,9 @@ public:
 
   Q_INVOKABLE bool addTag(ImageRef *iref, const QString &tag);
   Q_INVOKABLE bool removeTag(ImageRef *iref, const QString &tag);
+
+  Q_INVOKABLE QList<QObject *> addTagMultiple(const QList<QObject *> &irefs, const QString &tag);
+  Q_INVOKABLE QList<QObject *> removeTagMultiple(const QList<QObject *> &irefs, const QString &tag);
 
   Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList allTagCount();
@@ -136,6 +144,9 @@ public:
 
   Q_INVOKABLE void transactionStart();
   Q_INVOKABLE void transactionEnd();
+
+  Q_INVOKABLE void lockWrite();
+  Q_INVOKABLE void unlockWrite();
 
   Q_INVOKABLE void timerStart() { m_timer.start(); }
   Q_INVOKABLE qint64 timerElapsed() { return m_timer.elapsed(); }
