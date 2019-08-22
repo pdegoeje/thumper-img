@@ -10,8 +10,34 @@ Popup {
   modal: true
 
   ColumnLayout {
-    CheckBox {
-      id: autoTagCheckbox
+    RowLayout {
+      Label {
+        text: "Aspect ratio"
+      }
+
+      ComboBox {
+        model: aspectRatioModel
+        displayText: "1:%1".arg(currentText)
+        currentIndex: aspectRatioModel.indexOf(aspectRatio)
+        onActivated: {
+          aspectRatio = currentText
+        }
+      }
+    }
+
+    Switch {
+      checked: gridShowImageIds
+      text: "Show image IDs"
+      onClicked: gridShowImageIds = checked
+    }
+
+    Switch {
+      checked: gridShowSelectors
+      text: "Show image selectors"
+      onClicked: gridShowSelectors = checked
+    }
+
+    Switch {
       checked: autoTagging
       text: "Automatically tag imported images"
       onClicked: autoTagging = checked

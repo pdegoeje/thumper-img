@@ -81,7 +81,7 @@ ImageDao::ImageDao(QObject *parent) :
   m_ps_all.init(m_db, "SELECT store.id, group_concat(tag, ' ') "
                       "FROM store LEFT JOIN tag ON (tag.id = store.id) "
                       "GROUP BY store.id "
-                      "ORDER BY date DESC");
+                      "ORDER BY date ASC");
 
 
   m_ps_transStart.init(m_db, "BEGIN TRANSACTION");

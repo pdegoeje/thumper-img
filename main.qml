@@ -22,9 +22,12 @@ ApplicationWindow {
   property int renderSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
   property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
-  property real aspectRatio: 1.5
+  property real aspectRatio: 1
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
+
+  property bool gridShowImageIds: true
+  property bool gridShowSelectors: true
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -140,6 +143,8 @@ ApplicationWindow {
   }
 
   onSearchTagsModelChanged: {
+    console.log("Update Search Tags")
+
     var refList
     if(searchTagsModel.length > 0) {
       refList = ImageDao.search(allSimpleList, searchTagsModel)
@@ -197,16 +202,6 @@ ApplicationWindow {
         currentIndex: imagesPerRowModel.indexOf(imagesPerRow)
         onActivated: {
           imagesPerRow = currentText
-        }
-      }
-
-      ComboBox {
-        Layout.preferredWidth: 150
-        model: aspectRatioModel
-        displayText: "Aspect: %1".arg(currentText)
-        currentIndex: aspectRatioModel.indexOf(aspectRatio)
-        onActivated: {
-          aspectRatio = currentText
         }
       }
 
@@ -331,6 +326,7 @@ ApplicationWindow {
     }
 
     property bool isScrolling: false
+    property bool showSelectors: toolbar.visible && !list.isScrolling && gridShowSelectors
 
     onFlickStarted: isScrolling = true
     onFlickEnded: isScrolling = false
@@ -363,11 +359,11 @@ ApplicationWindow {
         y: list.pad
 
         id: view
-        asynchronous: true
+        //asynchronous: true
         height: imageHeight
         width: imageWidth
         fillMode: cellFillMode
-        cache: true
+        cache: false
         mipmap: false
         smooth: true
         source: "image://thumper/" + delegateItem.image.fileId
@@ -376,36 +372,6 @@ ApplicationWindow {
         opacity: ((selectionModel.length > 1 && !delegateItem.image.selected) ? 0.4 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
-        }
-
-        // don't even bother loading if the image isn't ready for display
-        Loader {
-          id: perItemUILoader
-
-          active: false
-          property bool shouldProbablyLoad: view.status == Image.Ready && toolbar.visible && !list.isScrolling
-          property bool beforeLoad: true
-
-          onShouldProbablyLoadChanged: {
-            active = true
-            beforeLoad = false
-          }
-
-          sourceComponent: CheckBox {
-            opacity: (list.isScrolling || perItemUILoader.beforeLoad || !toolbar.visible) ? 0 : 1
-
-            focusPolicy: Qt.NoFocus
-            checked: delegateItem.image.selected
-            onClicked: {
-              if(delegateItem.image.selected != checked) {
-                delegateItem.image.selected = checked
-                rebuildSelectionModel()
-              }
-            }
-            Behavior on opacity {
-              OpacityAnimator { duration: 150 }
-            }
-          }
         }
 
         TapHandler {
@@ -436,6 +402,44 @@ ApplicationWindow {
             rebuildSelectionModel()
           }
         }
+      }
+
+      // don't even bother loading if the image isn't ready for display
+      Loader {
+        id: perItemUILoader
+
+        active: false
+        property bool shouldProbablyLoad: view.status == Image.Ready && list.showSelectors
+        property bool beforeLoad: true
+
+        onShouldProbablyLoadChanged: {
+          active = true
+          beforeLoad = false
+        }
+
+        sourceComponent: CheckBox {
+          opacity: (list.showSelectors && !perItemUILoader.beforeLoad) ? 1 : 0
+
+          focusPolicy: Qt.NoFocus
+          checked: delegateItem.image.selected
+          onClicked: {
+            if(delegateItem.image.selected != checked) {
+              delegateItem.image.selected = checked
+              rebuildSelectionModel()
+            }
+          }
+          Behavior on opacity {
+            NumberAnimation { duration: 150 }
+          }
+        }
+      }
+
+      Text {
+        visible: gridShowImageIds
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        color: Material.accentColor
+        text: delegateItem.image.fileId
       }
     }
   }
