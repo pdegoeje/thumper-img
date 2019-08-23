@@ -187,6 +187,10 @@ QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
     out.append(QVariant::fromValue(r));
   }
 
+  std::sort(out.begin(), out.end(), [](const QVariant &a, const QVariant &b) {
+    return a.toList().at(1) > b.toList().at(1);
+  });
+
   return out;
 }
 
