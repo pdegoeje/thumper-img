@@ -100,7 +100,7 @@ ApplicationWindow {
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
     if(record) {
-      actionHistory.push(actionRemoveTag.bind(null, refList, tag));
+      actionHistory.push(actionRemoveTag.bind(null, actionList, tag));
     }
   }
 
@@ -117,12 +117,8 @@ ApplicationWindow {
     console.log("Removed tag", tag, "from", actionList.length, "image(s)")
 
     if(record) {
-      actionHistory.push(actionAddTag.bind(null, refList, tag));
+      actionHistory.push(actionAddTag.bind(null, actionList, tag));
     }
-  }
-
-  function recordUserAction() {
-
   }
 
   ImageProcessor {
