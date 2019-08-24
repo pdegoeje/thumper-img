@@ -17,6 +17,7 @@ SOURCES += \
     main.cpp \
     imageprocessor.cpp \
     sqlite3.c \
+    taglist.cpp \
     thumperimageprovider.cpp
 
 RESOURCES += qml.qrc
@@ -36,6 +37,7 @@ HEADERS += \
     imagedao.h \
     imageprocessor.h \
     sqlite3.h \
+    taglist.h \
     thumperimageprovider.h
 
 RC_ICONS = eye.ico

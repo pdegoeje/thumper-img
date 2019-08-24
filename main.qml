@@ -42,14 +42,54 @@ ApplicationWindow {
   property var viewTagCount: []
 
   property var searchTagsModel: []
-  property var allTagCount: []
+
+  TagModelList { id: selectionTagModelList }
+  TagModelList { id: viewTagModelList }
+  TagModelList {
+    id: allTagModelList
+    Component.onCompleted: rebuildAllTagModel()
+  }
 
   onSelectionModelChanged: rebuildTagModels()
+
+  QmlTaskListModel {
+    id: testModel
+  }
+
+  ListView {
+    anchors.fill: parent
+    interactive: false
+    model: testModel
+    z: 1
+
+    delegate: Label {
+      text: name + " " + count + " " + selected
+    }
+
+    add: Transition {
+      NumberAnimation { properties: "x"; from: -100; duration: 100 }
+    }
+
+    remove: Transition {
+      NumberAnimation { properties: "x"; to: -100; duration: 100 }
+    }
+
+    displaced: Transition {
+      NumberAnimation { properties: "x,y"; duration: 100 }
+    }
+  }
 
   function rebuildTagModels() {
     selectionTagCount = ImageDao.tagCount(selectionModel)
     viewTagCount = ImageDao.tagCount(viewModelSimpleList)
-    allTagCount = ImageDao.tagCount(allSimpleList)
+
+    selectionTagModelList.update(selectionTagCount)
+    testModel.update(selectionTagCount)
+    viewTagModelList.update(viewTagCount)
+  }
+
+  function rebuildAllTagModel() {
+    allTagModelList.update(ImageDao.tagCount(allSimpleList))
   }
 
   function rebuildSelectionModel() {
@@ -83,6 +123,7 @@ ApplicationWindow {
     actionList = ImageDao.addTagMultiple(refList, tag)
     ImageDao.unlockWrite();
     rebuildTagModels()
+    rebuildAllTagModel()
 
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
@@ -99,6 +140,7 @@ ApplicationWindow {
     actionList = ImageDao.removeTagMultiple(refList, tag);
     ImageDao.unlockWrite();
     rebuildTagModels()
+    rebuildAllTagModel()
 
     console.log("Removed tag", tag, "from", actionList.length, "image(s)")
 
@@ -187,10 +229,13 @@ ApplicationWindow {
 
       TagList {
         Layout.fillWidth: true
-        model: allTagCount
+        Layout.fillHeight: true
+
+        model: allTagModelList.tags
         checkable: true
         onClicked: {
           searchTagsModel = checkedTags
+          console.log(checkedTags)
           searchField.text = searchTagsModel.join(' ')
         }
       }
@@ -474,8 +519,9 @@ ApplicationWindow {
 
       TagList {
         Layout.fillWidth: true
+        Layout.fillHeight: true
         Layout.preferredWidth: 250
-        model: selectionTagCount
+        model: selectionTagModelList.tags
         //backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
 
         backgroundColor: 'green'
@@ -508,8 +554,10 @@ ApplicationWindow {
 
       TagList {
         Layout.fillWidth: true
+        Layout.fillHeight: true
+
         Layout.preferredWidth: 250
-        model: allTagCount
+        model: viewTagModelList.tags
         onClicked: {
           actionAddTag(selectionModel, tag)
         }
