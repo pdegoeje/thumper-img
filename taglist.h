@@ -96,7 +96,19 @@ public:
     auto newIter = newTags.constBegin();
     auto newIterEnd = newTags.constEnd();
 
-    // Do this explicitly before manipulating the model.
+    if(tagCount.isEmpty() || m_tags.isEmpty()) {
+      // easy case, just reset the entire model.
+      beginResetModel();
+      m_tags.clear();
+      while(newIter != newIterEnd) {
+        m_tags.append({ newIter.key(), newIter.value(), false });
+        ++newIter;
+      }
+      endResetModel();
+      return;
+    }
+
+    // Update data before manipulating the structure.
     // This works around bugs in QML ListView.
     for(int i = 0; i < m_tags.size(); i++) {
       auto newTagIter = newTags.constFind(m_tags[i].name);
@@ -106,7 +118,7 @@ public:
       }
     }
 
-    // Delete non-existing rows
+    // Delete non-existing tags
     for(int i = 0; i < m_tags.size(); ) {
       if(newTags.contains(m_tags[i].name)) {
         i++;
@@ -119,25 +131,25 @@ public:
 
     int i = 0;
 
-    // newTags is now a superset of the existing m_tags
-    while(newIter != newIterEnd && i < m_tags.size()) {
-      QmlTag &old = m_tags[i];
-      int cmp = newIter.key().compare(old.name);
-      if(cmp < 0) {
+    while(i < m_tags.size()) {
+      // newTags is a superset of m_tags, so we can't possibly have reached the end before we reach
+      // the end of the m_tags list (they can reach their ends at the same time though).
+      Q_ASSERT(newIter != newIterEnd);
+      // It is impossible for newIter.key() > m_tags[i].name, because we slide
+      // over the newIter map until we go in lockstep with m_tags (as in the tags are equal).
+      Q_ASSERT(newIter.key() <= m_tags[i].name);
+
+      if(newIter.key() < m_tags[i].name) {
+        // new tag, insert it.
         beginInsertRows({}, i, i);
         m_tags.insert(i, { newIter.key(), newIter.value(), false });
         endInsertRows();
-
-        ++i;
-        ++newIter;
-      } else if(cmp > 0) {
-        // this can never happen, because all m_tags are in the newTags map.
-        ++i;
-      } else {
-        ++i;
-        ++newIter;
       }
+
+      ++i;
+      ++newIter;
     }
+    // append any leftover new tags.
     while(newIter != newIterEnd) {
       beginInsertRows({}, m_tags.length(), m_tags.length());
       m_tags.append({ newIter.key(), newIter.value(), false });
