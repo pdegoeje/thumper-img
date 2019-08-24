@@ -43,48 +43,20 @@ ApplicationWindow {
 
   property var searchTagsModel: []
 
-  TagModelList { id: selectionTagModelList }
-  TagModelList { id: viewTagModelList }
-  TagModelList {
+  QmlTaskListModel { id: selectionTagModelList }
+  QmlTaskListModel { id: viewTagModelList }
+  QmlTaskListModel {
     id: allTagModelList
     Component.onCompleted: rebuildAllTagModel()
   }
 
   onSelectionModelChanged: rebuildTagModels()
 
-  QmlTaskListModel {
-    id: testModel
-  }
-
-  ListView {
-    anchors.fill: parent
-    interactive: false
-    model: testModel
-    z: 1
-
-    delegate: Label {
-      text: name + " " + count + " " + selected
-    }
-
-    add: Transition {
-      NumberAnimation { properties: "x"; from: -100; duration: 100 }
-    }
-
-    remove: Transition {
-      NumberAnimation { properties: "x"; to: -100; duration: 100 }
-    }
-
-    displaced: Transition {
-      NumberAnimation { properties: "x,y"; duration: 100 }
-    }
-  }
-
   function rebuildTagModels() {
     selectionTagCount = ImageDao.tagCount(selectionModel)
     viewTagCount = ImageDao.tagCount(viewModelSimpleList)
 
     selectionTagModelList.update(selectionTagCount)
-    testModel.update(selectionTagCount)
     viewTagModelList.update(viewTagCount)
   }
 
@@ -231,7 +203,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.fillHeight: true
 
-        model: allTagModelList.tags
+        model: allTagModelList
         checkable: true
         onClicked: {
           searchTagsModel = checkedTags
@@ -521,7 +493,7 @@ ApplicationWindow {
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.preferredWidth: 250
-        model: selectionTagModelList.tags
+        model: selectionTagModelList
         //backgroundColor: Qt.tint('green', Qt.rgba(0, 0, 0, (1 - count / selectionModel.length) * 0.5))
 
         backgroundColor: 'green'
@@ -557,7 +529,7 @@ ApplicationWindow {
         Layout.fillHeight: true
 
         Layout.preferredWidth: 250
-        model: viewTagModelList.tags
+        model: viewTagModelList
         onClicked: {
           actionAddTag(selectionModel, tag)
         }

@@ -19,30 +19,19 @@ ListView {
   spacing: 4
 
   delegate: Tag {
-    property TagModel tagModel: modelData
-
-    id: theTag
     checkable: root.checkable
 
     backgroundColor: checked ? root.backgroundColorChecked : root.backgroundColor
 
-    checked: tagModel.selected
-    tag: tagModel.name
-    count: tagModel.count
+    checked: model.selected
+    tag: model.name
+    count: model.count
     onClicked: {
-      tagModel.selected = checked
-      var tagList = root.model
+      model.selected = checked
+      var tagList = root.model.selectedTags()
+      console.log("Tag list", tagList)
 
-      console.log(tagList)
-
-      var checkedTags = []
-      for(var i = 0; i < tagList.length; i++) {
-        if(tagList[i].selected) {
-          checkedTags.push(tagList[i].name)
-        }
-      }
-
-      root.clicked(tag, checkedTags)
+      root.clicked(tag, tagList)
     }
   }
 }

@@ -19,8 +19,8 @@ int main(int argc, char *argv[])
     [](QQmlEngine *, QJSEngine *) { return (QObject *)ImageDao::instance(); });
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
-  qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
-  qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
+  //qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
+  //qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());
