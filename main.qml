@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.5.0"
+  title: "Thumper 1.6.0"
 
   property string pathPrefix: "./"
   property int imagesPerRow: 6
