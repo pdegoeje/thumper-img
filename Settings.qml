@@ -31,11 +31,11 @@ Popup {
       onClicked: gridShowImageIds = checked
     }
 
-    Switch {
+    /*Switch {
       checked: gridShowSelectors
       text: "Show image selectors"
       onClicked: gridShowSelectors = checked
-    }
+    }*/
 
     Switch {
       checked: autoTagging

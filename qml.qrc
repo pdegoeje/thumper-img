@@ -8,5 +8,8 @@
         <file>Settings.qml</file>
         <file>baseline_settings_white_18dp.png</file>
         <file>Lightbox.qml</file>
+        <file>baseline_drag_indicator_white_24dp.png</file>
+        <file>baseline_save_alt_white_24dp.png</file>
+        <file>selection_box.png</file>
     </qresource>
 </RCC>

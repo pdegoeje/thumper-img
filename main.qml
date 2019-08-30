@@ -26,8 +26,8 @@ ApplicationWindow {
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
 
-  property bool gridShowImageIds: true
-  property bool gridShowSelectors: true
+  property bool gridShowImageIds: false
+  //property bool gridShowSelectors: true
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -96,6 +96,8 @@ ApplicationWindow {
     ImageDao.unlockWrite();
     rebuildTagModels()
     rebuildAllTagModel()
+
+
 
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
@@ -208,6 +210,13 @@ ApplicationWindow {
         }
       }
 
+      ToolButton {
+        icon.source: "baseline_save_alt_white_24dp.png"
+        onClicked: {
+          console.log("WiP")
+        }
+      }
+
       ComboBox {
         Layout.preferredWidth: 150
         model: imagesPerRowModel
@@ -293,14 +302,14 @@ ApplicationWindow {
   Component {
     id: highlight
     Rectangle {
-      width: list.cellWidth + spacing
-      height: list.cellHeight + spacing
-      color: '#555' //'green'//'transparent'
-      border.color: "lightsteelblue"
-      opacity: list.activeFocus ? 1 : 0.3
-      border.width: spacing
-      x: list.currentItem ? list.currentItem.x - list.pad : 0
-      y: list.currentItem ? list.currentItem.y - list.pad : 0
+      width: list.cellWidth - spacing + border.width * 2
+      height: list.cellHeight - spacing + border.width * 2
+      color: 'transparent'
+      border.color: Material.highlightedButtonColor
+      opacity: list.activeFocus ? 1 : 0.5
+      border.width: 2
+      x: list.currentItem ? list.currentItem.x + list.pad - border.width : 0
+      y: list.currentItem ? list.currentItem.y + list.pad - border.width : 0
     }
   }
 
@@ -331,15 +340,15 @@ ApplicationWindow {
     interactive: true
 
     onCurrentIndexChanged: {
-      if(selectionModel.length <= 1) {
+/*      if(selectionModel.length <= 1) {
         selectionModel.forEach(function(ref) { ref.selected = false })
       }
       viewModelSimpleList[currentIndex].selected = true
-      rebuildSelectionModel()
+      rebuildSelectionModel()*/
     }
 
     property bool isScrolling: false
-    property bool showSelectors: toolbar.visible && !list.isScrolling && gridShowSelectors
+    //property bool showSelectors: toolbar.visible && !list.isScrolling && gridShowSelectors
 
     onFlickStarted: isScrolling = true
     onFlickEnded: isScrolling = false
@@ -367,6 +376,23 @@ ApplicationWindow {
 
       property ImageRef image: ref
 
+      function setFocusItem() {
+        list.forceActiveFocus()
+      }
+
+      BorderImage {
+        source: "selection_box.png"
+        visible: delegateItem.image.selected
+        anchors.margins: list.pad - 2
+        anchors.fill: parent
+        border.left: 3; border.top: 3
+        border.right: 3; border.bottom: 3
+        horizontalTileMode: BorderImage.Repeat
+        verticalTileMode: BorderImage.Repeat
+        smooth: false
+        cache: true
+      }
+
       Image {
         x: list.pad
         y: list.pad
@@ -381,7 +407,7 @@ ApplicationWindow {
         source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
-        opacity: ((selectionModel.length > 1 && !delegateItem.image.selected) ? 0.4 : 1)
+        opacity: ((selectionModel.length > 1 && !delegateItem.image.selected) ? 0.5 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
         }
@@ -389,6 +415,8 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.AltModifier
           onTapped: {
+            delegateItem.setFocusItem()
+
             offscreen.fileId = delegateItem.image.fileId
             offscreen.source = view.source
           }
@@ -397,10 +425,9 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.NoModifier
           onTapped: {
-            list.forceActiveFocus()
+            delegateItem.setFocusItem()
             list.currentIndex = index
           }
-
           onDoubleTapped: {
             lightboxLoader.active = true
             lightboxLoader.item.open()
@@ -410,6 +437,8 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.ControlModifier
           onTapped: {
+            delegateItem.setFocusItem()
+
             delegateItem.image.selected = !delegateItem.image.selected
             rebuildSelectionModel()
           }
@@ -417,7 +446,7 @@ ApplicationWindow {
       }
 
       // don't even bother loading if the image isn't ready for display
-      Loader {
+      /*Loader {
         id: perItemUILoader
 
         active: false
@@ -444,7 +473,18 @@ ApplicationWindow {
             NumberAnimation { duration: 150 }
           }
         }
-      }
+      }*/
+
+
+      /*
+      Rectangle {
+        visible: delegateItem.image.selected
+        anchors.margins: list.pad - border.width
+        color: 'transparent'
+        border.color: 'white'
+        border.width: 2
+        anchors.fill: parent
+      }*/
 
       Text {
         visible: gridShowImageIds
