@@ -37,6 +37,9 @@ ApplicationWindow {
   property var allSimpleList: ImageDao.all()
 
   property var selectionModel: []
+  property var focusSelectionModel: [ viewModelSimpleList[list.currentIndex] ]
+
+  property var effectiveSelectionModel: selectionModel.length > 0 ? selectionModel : focusSelectionModel
 
   property var selectionTagCount: []
   property var viewTagCount: []
@@ -50,10 +53,10 @@ ApplicationWindow {
     Component.onCompleted: rebuildAllTagModel()
   }
 
-  onSelectionModelChanged: rebuildTagModels()
+  onEffectiveSelectionModelChanged: rebuildTagModels()
 
   function rebuildTagModels() {
-    selectionTagCount = ImageDao.tagCount(selectionModel)
+    selectionTagCount = ImageDao.tagCount(effectiveSelectionModel)
     viewTagCount = ImageDao.tagCount(viewModelSimpleList)
 
     selectionTagModelList.update(selectionTagCount)
@@ -266,7 +269,7 @@ ApplicationWindow {
         onAccepted: {
           var tag = text.trim()
           if(tag !== '') {
-            actionAddTag(selectionModel, tag)
+            actionAddTag(effectiveSelectionModel, tag)
           }
           addTagPopup.close()
         }
@@ -376,10 +379,6 @@ ApplicationWindow {
 
       property ImageRef image: ref
 
-      function setFocusItem() {
-        list.forceActiveFocus()
-      }
-
       BorderImage {
         source: "selection_box.png"
         visible: delegateItem.image.selected
@@ -407,7 +406,7 @@ ApplicationWindow {
         source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
-        opacity: ((selectionModel.length > 1 && !delegateItem.image.selected) ? 0.5 : 1)
+        opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
         }
@@ -415,7 +414,7 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.AltModifier
           onTapped: {
-            delegateItem.setFocusItem()
+            list.forceActiveFocus()
 
             offscreen.fileId = delegateItem.image.fileId
             offscreen.source = view.source
@@ -425,7 +424,7 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.NoModifier
           onTapped: {
-            delegateItem.setFocusItem()
+            list.forceActiveFocus()
             list.currentIndex = index
           }
           onDoubleTapped: {
@@ -437,7 +436,8 @@ ApplicationWindow {
         TapHandler {
           acceptedModifiers: Qt.ControlModifier
           onTapped: {
-            delegateItem.setFocusItem()
+            list.forceActiveFocus()
+            list.currentIndex = index
 
             delegateItem.image.selected = !delegateItem.image.selected
             rebuildSelectionModel()
@@ -522,7 +522,7 @@ ApplicationWindow {
 
       id: myFlow
       Label {
-        text: "Selected %1/%2".arg(selectionModel.length).arg(viewModel.count)
+        text: "Selected %1/%2".arg(effectiveSelectionModel.length).arg(viewModel.count)
       }
 
       TagList {
@@ -534,7 +534,7 @@ ApplicationWindow {
 
         backgroundColor: 'green'
         onClicked: {
-          actionRemoveTag(selectionModel, tag)
+          actionRemoveTag(effectiveSelectionModel, tag)
         }
 
       }
@@ -567,7 +567,7 @@ ApplicationWindow {
         Layout.preferredWidth: 250
         model: viewTagModelList
         onClicked: {
-          actionAddTag(selectionModel, tag)
+          actionAddTag(effectiveSelectionModel, tag)
         }
       }
     }
