@@ -7,6 +7,7 @@
 #include <QThread>
 #include <QElapsedTimer>
 #include <QDebug>
+#include <QFile>
 
 ImageDao *ImageDao::m_instance;
 
@@ -267,6 +268,37 @@ ImageRef *ImageDao::findHash(const QString &hash)
   return iref;
 }
 
+
+void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags)
+{
+  QSize reqSize(requestedSize, requestedSize);
+
+  for(QObject *rptr : irefs) {
+    ImageRef *ref = qobject_cast<ImageRef *>(rptr);
+
+    ImageDataContext idc;
+    imageDataAcquire(idc, ref->m_fileId);
+
+    QBuffer buffer(&idc.data);
+    QImageReader reader(&buffer);
+    QByteArray format = reader.format();
+    QString filename = QStringLiteral("%1%2_%3").arg(path).arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
+
+    if(reqSize.isValid()) {
+      QImage image = reader.read();
+      image = image.scaled(reqSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+      image.save(filename + QStringLiteral(".jpeg"));
+    } else {
+      QFile file(filename + QString::asprintf(".%s", format.constData()));
+      if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        file.write(idc.data);
+      }
+    }
+
+    imageDataRelease(idc);
+  }
+}
+
 void ImageDao::transactionStart()
 {
   m_ps_transStart.exec();
@@ -300,24 +332,37 @@ QStringList ImageDao::tagsById(qint64 id)
   return tags;
 }
 
+
+void ImageDao::imageDataAcquire(ImageDao::ImageDataContext &idc, qint64 id)
+{
+  idc.conn = m_connPool.open();
+  idc.ps.init(idc.conn->m_db, "SELECT image FROM store WHERE id = ?1");
+  idc.ps.bind(1, id);
+  idc.ps.step(__FUNCTION__);
+
+  const char *data = (const char *)sqlite3_column_blob(idc.ps.m_stmt, 0);
+  int bytes = sqlite3_column_bytes(idc.ps.m_stmt, 0);
+
+  idc.data = QByteArray::fromRawData(data, bytes);
+}
+
+void ImageDao::imageDataRelease(ImageDao::ImageDataContext &idc)
+{
+  idc.ps.reset();
+  idc.ps.destroy();
+
+  m_connPool.close(idc.conn);
+}
+
 QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled)
 {
   QImage result;
 
-  SQLitePreparedStatement m_ps_imageById;
-  SQLiteConnection *m_myConn = m_connPool.open();
-
-  m_ps_imageById.init(m_myConn->m_db, "SELECT image FROM store WHERE id = ?1");
-  m_ps_imageById.bind(1, id);
-  m_ps_imageById.step(__FUNCTION__);
-
-  const char *data = (const char *)sqlite3_column_blob(m_ps_imageById.m_stmt, 0);
-  int bytes = sqlite3_column_bytes(m_ps_imageById.m_stmt, 0);
-
-  auto byte_array = QByteArray::fromRawData(data, bytes);
+  ImageDataContext idc;
+  imageDataAcquire(idc, id);
 
   if(!(*cancelled)) {
-    QBuffer buffer(&byte_array);
+    QBuffer buffer(&idc.data);
     QImageReader reader(&buffer);
 
     if(requestedSize.isValid()) {
@@ -341,11 +386,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     result = reader.read();
   }
 
-  m_ps_imageById.reset();
-  m_ps_imageById.destroy();
-
-  m_connPool.close(m_myConn);
-
+  imageDataRelease(idc);
   return result;
 }
 

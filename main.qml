@@ -11,7 +11,47 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.6.0"
+  title: "Thumper 1.7.0"
+
+  FileUtils {
+    id: fileUtils
+  }
+
+  property var persistentProperties: [
+    'pathPrefix',
+    'autoTagging',
+    'imagesPerRow',
+    'renderSize',
+    'gridShowImageIds',
+    'aspectRatio',
+  ]
+
+  function loadSettings() {
+    var settings = JSON.parse(fileUtils.load("thumper.json"))
+    if(settings) {
+      for(var k in settings) {
+        root[k] = settings[k]
+      }
+    }
+  }
+
+  function saveSettings() {
+    var settings = { }
+    for(var i in persistentProperties) {
+      var k = persistentProperties[i]
+      settings[k] = root[k]
+    }
+
+    fileUtils.save("thumper.json", JSON.stringify(settings, null, 2))
+  }
+
+  Component.onCompleted: {
+    loadSettings()
+  }
+
+  Component.onDestruction: {
+    saveSettings()
+  }
 
   property string pathPrefix: "./"
   property int imagesPerRow: 6
@@ -19,9 +59,9 @@ ApplicationWindow {
   property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
   property int imageHeight: imageWidth * aspectRatio
   property int spacing: 8
-  property var renderSize: 531
+  property int renderSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var renderModel: [ 160, 240, 320, 480, 531, 640, 'Original']
+  property var renderModel: [ 160, 240, 320, 480, 531, 640, -1]
   property real aspectRatio: 1
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
@@ -220,7 +260,8 @@ ApplicationWindow {
       ToolButton {
         icon.source: "baseline_save_alt_white_24dp.png"
         onClicked: {
-          console.log("WiP")
+          var size = typeof renderSize == 'number' ? renderSize : -1
+          ImageDao.renderImages(effectiveSelectionModel, pathPrefix, size, 0)
         }
       }
 
@@ -278,34 +319,6 @@ ApplicationWindow {
           addTagPopup.close()
         }
       }
-    }
-  }
-
-  Image {
-    id: offscreen    
-    visible: false
-    width: typeof renderSize == 'number' ? renderSize : implicitWidth
-    height: typeof renderSize == 'number' ? renderSize : implicitHeight
-    sourceSize: typeof renderSize == 'number' ? Qt.size(renderSize, renderSize) : undefined
-    cache: false
-    fillMode: Image.PreserveAspectFit
-
-    property int fileId
-
-    onStatusChanged: if(status == Image.Ready) {
-      offscreen.grabToImage(function(result) {
-        //var hash = ImageDao.hashById(fileId)
-        //var path = pathPrefix + hash + ".jpg"
-        var ref = imageRefById(fileId)
-        var path = pathPrefix + ref.tags.join('_') + '_' + fileId + ".jpg"
-
-        console.log("Saved to: " + path)
-        processor.setClipBoard(fileId)
-        result.saveToFile(path);
-
-        offscreen.fileId = ''
-        offscreen.source = ''
-      });
     }
   }
 
@@ -421,16 +434,6 @@ ApplicationWindow {
         opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
-        }
-
-        TapHandler {
-          acceptedModifiers: Qt.AltModifier
-          onTapped: {
-            list.forceActiveFocus()
-
-            offscreen.fileId = delegateItem.image.fileId
-            offscreen.source = view.source
-          }
         }
 
         TapHandler {

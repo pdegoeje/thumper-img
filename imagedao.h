@@ -121,6 +121,12 @@ class ImageDao : public QObject
   QElapsedTimer m_timer;
   QMutex m_writeLock;
 public:
+  struct ImageDataContext {
+    QByteArray data;
+    SQLiteConnection *conn;
+    SQLitePreparedStatement ps;
+  };
+
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
 
@@ -141,6 +147,11 @@ public:
   void addTag(qint64 fileId, const QString &tag);
   void removeTag(qint64 fileId, const QString &tag);
   Q_INVOKABLE ImageRef *findHash(const QString &hash);
+
+  void imageDataAcquire(ImageDataContext &idc, qint64 id);
+  void imageDataRelease(ImageDataContext &idc);
+
+  Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
 
   Q_INVOKABLE void transactionStart();
   Q_INVOKABLE void transactionEnd();

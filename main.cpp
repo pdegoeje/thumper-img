@@ -3,6 +3,7 @@
 #include "imagedao.h"
 #include "sqlite3.h"
 #include "taglist.h"
+#include "fileutils.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -46,6 +47,7 @@ int main(int argc, char *argv[])
     [](QQmlEngine *, QJSEngine *) { return (QObject *)ImageDao::instance(); });
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
+  qmlRegisterType<FileUtils>("thumper", 1, 0, "FileUtils");
   //qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
   //qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
 
