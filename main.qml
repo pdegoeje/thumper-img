@@ -367,16 +367,21 @@ ApplicationWindow {
       onPressedChanged: list.isScrolling = pressed
     }
 
-    Keys.onSpacePressed: {
-      lightboxLoader.active = true
-      lightboxLoader.item.open()
-    }
-
     Keys.onPressed: {
       if(event.key === Qt.Key_A) {
         addTagPopup.open()
         event.accepted = true
+      } else if(event.key === Qt.Key_F) {
+        lightboxLoader.active = true
+        lightboxLoader.item.open()
+        event.accepted = true
       }
+    }
+
+    Keys.onSpacePressed: {
+      var ref = viewModelSimpleList[currentIndex]
+      ref.selected = !ref.selected
+      rebuildSelectionModel()
     }
 
     delegate: Item {
@@ -451,47 +456,6 @@ ApplicationWindow {
           }
         }
       }
-
-      // don't even bother loading if the image isn't ready for display
-      /*Loader {
-        id: perItemUILoader
-
-        active: false
-        property bool shouldProbablyLoad: view.status == Image.Ready && list.showSelectors
-        property bool beforeLoad: true
-
-        onShouldProbablyLoadChanged: {
-          active = true
-          beforeLoad = false
-        }
-
-        sourceComponent: CheckBox {
-          opacity: (list.showSelectors && !perItemUILoader.beforeLoad) ? 1 : 0
-
-          focusPolicy: Qt.NoFocus
-          checked: delegateItem.image.selected
-          onClicked: {
-            if(delegateItem.image.selected != checked) {
-              delegateItem.image.selected = checked
-              rebuildSelectionModel()
-            }
-          }
-          Behavior on opacity {
-            NumberAnimation { duration: 150 }
-          }
-        }
-      }*/
-
-
-      /*
-      Rectangle {
-        visible: delegateItem.image.selected
-        anchors.margins: list.pad - border.width
-        color: 'transparent'
-        border.color: 'white'
-        border.width: 2
-        anchors.fill: parent
-      }*/
 
       Text {
         visible: gridShowImageIds

@@ -9,16 +9,11 @@ import thumper 1.0
 Popup {
   id: lightbox
   
-  /*Shortcut {
-    sequence: "Escape"
-    onActivated: close()
-  }*/
-  
   Shortcut {
-    sequence: "Space"
+    sequence: "F"
     onActivated: close()
   }
-  
+
   property ImageRef image: viewModelSimpleList[list.currentIndex]
   
   parent: Overlay.overlay
