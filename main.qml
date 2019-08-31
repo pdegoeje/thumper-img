@@ -19,9 +19,9 @@ ApplicationWindow {
   property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
   property int imageHeight: imageWidth * aspectRatio
   property int spacing: 8
-  property int renderSize: 531
+  property var renderSize: 531
   property int cellFillMode: Image.PreserveAspectCrop
-  property var renderModel: [ 160, 240, 320, 480, 531, 640 ]
+  property var renderModel: [ 160, 240, 320, 480, 531, 640, 'Original']
   property real aspectRatio: 1
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
@@ -35,6 +35,10 @@ ApplicationWindow {
   }
   property var viewModelSimpleList: []
   property var allSimpleList: ImageDao.all()
+
+  function imageRefById(fileId) {
+    return viewModelSimpleList[viewIdToIndexMap[fileId]]
+  }
 
   property var selectionModel: []
   property var focusSelectionModel: [ viewModelSimpleList[list.currentIndex] ]
@@ -280,18 +284,21 @@ ApplicationWindow {
   Image {
     id: offscreen    
     visible: false
-    width: renderSize
-    height: renderSize
-    sourceSize: Qt.size(renderSize, renderSize)
-    cache: true
+    width: typeof renderSize == 'number' ? renderSize : implicitWidth
+    height: typeof renderSize == 'number' ? renderSize : implicitHeight
+    sourceSize: typeof renderSize == 'number' ? Qt.size(renderSize, renderSize) : undefined
+    cache: false
     fillMode: Image.PreserveAspectFit
 
     property int fileId
 
     onStatusChanged: if(status == Image.Ready) {
       offscreen.grabToImage(function(result) {
-        var hash = ImageDao.hashById(fileId)
-        var path = pathPrefix + hash + ".jpg"
+        //var hash = ImageDao.hashById(fileId)
+        //var path = pathPrefix + hash + ".jpg"
+        var ref = imageRefById(fileId)
+        var path = pathPrefix + ref.tags.join('_') + '_' + fileId + ".jpg"
+
         console.log("Saved to: " + path)
         processor.setClipBoard(fileId)
         result.saveToFile(path);

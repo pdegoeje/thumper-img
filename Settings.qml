@@ -64,7 +64,7 @@ Popup {
       ComboBox {
         Layout.preferredWidth: 150
         model: renderModel
-        displayText: "%1px".arg(currentText)
+        displayText: currentText
         currentIndex: renderModel.indexOf(renderSize)
         onActivated: {
           renderSize = currentText
