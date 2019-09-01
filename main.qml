@@ -24,13 +24,16 @@ ApplicationWindow {
     'renderSize',
     'gridShowImageIds',
     'aspectRatio',
+    'cellFillMode',
   ]
 
   function loadSettings() {
     var settings = JSON.parse(fileUtils.load("thumper.json"))
     if(settings) {
       for(var k in settings) {
-        root[k] = settings[k]
+        if(k in root) {
+          root[k] = settings[k]
+        }
       }
     }
   }
@@ -59,7 +62,7 @@ ApplicationWindow {
   property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
   property int imageHeight: imageWidth * aspectRatio
   property int spacing: 8
-  property int renderSize: 531
+  property int renderSize: -1
   property int cellFillMode: Image.PreserveAspectCrop
   property var renderModel: [ 160, 240, 320, 480, 531, 640, -1]
   property real aspectRatio: 1
@@ -277,9 +280,9 @@ ApplicationWindow {
 
       CheckBox {
         text: "Crop"
-        checked: true
+        checked: cellFillMode == Image.PreserveAspectCrop
         onClicked: {
-          cellFillMode = (cellFillMode == Image.PreserveAspectCrop) ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+          cellFillMode = checked ? Image.PreserveAspectCrop : Image.PreserveAspectFit
         }
       }
       ToolButton {
@@ -357,21 +360,11 @@ ApplicationWindow {
 
     highlight: highlight
     highlightFollowsCurrentItem: false
-    //highlightMoveDuration: 0
 
     pixelAligned: false
     interactive: true
 
-    onCurrentIndexChanged: {
-/*      if(selectionModel.length <= 1) {
-        selectionModel.forEach(function(ref) { ref.selected = false })
-      }
-      viewModelSimpleList[currentIndex].selected = true
-      rebuildSelectionModel()*/
-    }
-
     property bool isScrolling: false
-    //property bool showSelectors: toolbar.visible && !list.isScrolling && gridShowSelectors
 
     onFlickStarted: isScrolling = true
     onFlickEnded: isScrolling = false
@@ -388,6 +381,15 @@ ApplicationWindow {
         lightboxLoader.active = true
         lightboxLoader.item.open()
         event.accepted = true
+      }
+    }
+
+    function selectRange(left, right, selected) {
+      var min = Math.min(left, right)
+      var max = Math.max(left, right)
+
+      for(var i = min; i <= max; i++) {
+        viewModelSimpleList[i].selected = selected
       }
     }
 
@@ -434,6 +436,28 @@ ApplicationWindow {
         opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
+        }
+
+        TapHandler {
+          acceptedModifiers: Qt.ShiftModifier
+          onTapped: {
+            list.selectRange(list.currentIndex, index, true)
+
+            list.forceActiveFocus()
+            list.currentIndex = index
+            rebuildSelectionModel()
+          }
+        }
+
+        TapHandler {
+          acceptedModifiers: Qt.ShiftModifier | Qt.ControlModifier
+          onTapped: {
+            list.selectRange(list.currentIndex, index, false)
+
+            list.forceActiveFocus()
+            list.currentIndex = index
+            rebuildSelectionModel()
+          }
         }
 
         TapHandler {

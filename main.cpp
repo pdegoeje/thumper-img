@@ -14,7 +14,7 @@ static QFile *logFile;
 
 static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
   if(logFile == nullptr) {
-    logFile = new QFile("flowsuite.log");
+    logFile = new QFile("thumper.log");
     if(!logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
       fprintf(stderr, "Failed to open logfile\n");
     } else {
