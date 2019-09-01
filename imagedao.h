@@ -127,6 +127,12 @@ public:
     SQLitePreparedStatement ps;
   };
 
+  enum RenderFlags {
+    PAD_TO_FIT = 1
+  };
+
+  Q_ENUM(RenderFlags)
+
   explicit ImageDao(QObject *parent = nullptr);
   virtual ~ImageDao();
 

@@ -25,6 +25,7 @@ ApplicationWindow {
     'gridShowImageIds',
     'aspectRatio',
     'cellFillMode',
+    'renderPadToFit',
   ]
 
   function loadSettings() {
@@ -68,6 +69,7 @@ ApplicationWindow {
   property real aspectRatio: 1
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
+  property bool renderPadToFit: false
 
   property bool gridShowImageIds: false
   //property bool gridShowSelectors: true
@@ -264,7 +266,7 @@ ApplicationWindow {
         icon.source: "baseline_save_alt_white_24dp.png"
         onClicked: {
           var size = typeof renderSize == 'number' ? renderSize : -1
-          ImageDao.renderImages(effectiveSelectionModel, pathPrefix, size, 0)
+          ImageDao.renderImages(effectiveSelectionModel, pathPrefix, size, renderPadToFit ? ImageDao.PAD_TO_FIT : 0)
         }
       }
 

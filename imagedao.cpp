@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QDebug>
 #include <QFile>
+#include <QPainter>
 
 ImageDao *ImageDao::m_instance;
 
@@ -287,7 +288,16 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     if(reqSize.isValid()) {
       QImage image = reader.read();
       image = image.scaled(reqSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-      image.save(filename + QStringLiteral(".jpeg"));
+
+      if(flags & PAD_TO_FIT) {
+        QImage surface(reqSize, QImage::Format_RGB32);
+        surface.fill(Qt::black);
+        QPainter painter(&surface);
+        painter.drawImage((surface.width() - image.width()) / 2, (surface.height() - image.height()) / 2, image);
+        image = surface;
+      }
+
+      image.save(filename + QStringLiteral(".jpeg"), "jpeg", 100);
     } else {
       QFile file(filename + QString::asprintf(".%s", format.constData()));
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {

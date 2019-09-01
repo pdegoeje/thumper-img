@@ -71,5 +71,11 @@ Popup {
         }
       }
     }
+
+    Switch {
+      text: "Pad image to fit size"
+      checked: renderPadToFit
+      onClicked: renderPadToFit = checked
+    }
   }
 }
