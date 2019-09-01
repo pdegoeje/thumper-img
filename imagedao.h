@@ -128,7 +128,8 @@ public:
   };
 
   enum RenderFlags {
-    PAD_TO_FIT = 1
+    PAD_TO_FIT = 0x01,
+    FNAME_TO_CLIPBOARD = 0x2,
   };
 
   Q_ENUM(RenderFlags)

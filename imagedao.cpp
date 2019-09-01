@@ -9,6 +9,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QPainter>
+#include <QClipboard>
+#include <QGuiApplication>
 
 ImageDao *ImageDao::m_instance;
 
@@ -274,6 +276,8 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
 {
   QSize reqSize(requestedSize, requestedSize);
 
+  QStringList clipBoardData;
+
   for(QObject *rptr : irefs) {
     ImageRef *ref = qobject_cast<ImageRef *>(rptr);
 
@@ -283,7 +287,11 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     QBuffer buffer(&idc.data);
     QImageReader reader(&buffer);
     QByteArray format = reader.format();
-    QString filename = QStringLiteral("%1%2_%3").arg(path).arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
+
+    QString basename = QStringLiteral("%1_%2").arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
+    clipBoardData.append(basename);
+
+    QString filename = QStringLiteral("%1%2").arg(path).arg(basename);
 
     if(reqSize.isValid()) {
       QImage image = reader.read();
@@ -297,15 +305,24 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
         image = surface;
       }
 
-      image.save(filename + QStringLiteral(".jpeg"), "jpeg", 100);
+      filename += QStringLiteral(".jpg");
+      image.save(filename, "jpg", 100);
     } else {
-      QFile file(filename + QString::asprintf(".%s", format.constData()));
+      filename += QString::asprintf(".%s", format.constData());
+      QFile file(filename);
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         file.write(idc.data);
       }
     }
 
+    qInfo() << __FUNCTION__ << "Rendering image:" << filename;
+
     imageDataRelease(idc);
+  }
+
+  if(flags & FNAME_TO_CLIPBOARD) {
+    QClipboard *cb = QGuiApplication::clipboard();
+    cb->setText(clipBoardData.join('\n'));
   }
 }
 

@@ -26,6 +26,7 @@ ApplicationWindow {
     'aspectRatio',
     'cellFillMode',
     'renderPadToFit',
+    'renderFilenameToClipboard',
   ]
 
   function loadSettings() {
@@ -70,9 +71,8 @@ ApplicationWindow {
   property var aspectRatioModel: [0.5, 0.67, 1.0, 1.5, 2.0]
   property bool autoTagging: false
   property bool renderPadToFit: false
-
+  property bool renderFilenameToClipboard: false
   property bool gridShowImageIds: false
-  //property bool gridShowSelectors: true
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -175,6 +175,17 @@ ApplicationWindow {
     }
   }
 
+  function renderImages() {
+    var flags = 0
+    if(renderPadToFit)
+      flags |= ImageDao.PAD_TO_FIT
+
+    if(renderFilenameToClipboard)
+      flags |= ImageDao.FNAME_TO_CLIPBOARD
+
+    ImageDao.renderImages(effectiveSelectionModel, pathPrefix, renderSize, flags)
+  }
+
   ImageProcessor {
     id: processor
     onImageReady: {
@@ -264,10 +275,7 @@ ApplicationWindow {
 
       ToolButton {
         icon.source: "baseline_save_alt_white_24dp.png"
-        onClicked: {
-          var size = typeof renderSize == 'number' ? renderSize : -1
-          ImageDao.renderImages(effectiveSelectionModel, pathPrefix, size, renderPadToFit ? ImageDao.PAD_TO_FIT : 0)
-        }
+        onClicked: renderImages()
       }
 
       ComboBox {
@@ -382,6 +390,9 @@ ApplicationWindow {
       } else if(event.key === Qt.Key_F) {
         lightboxLoader.active = true
         lightboxLoader.item.open()
+        event.accepted = true
+      } else if(event.key === Qt.Key_R) {
+        renderImages()
         event.accepted = true
       }
     }
