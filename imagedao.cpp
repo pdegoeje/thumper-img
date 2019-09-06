@@ -112,7 +112,6 @@ ImageDao::ImageDao(QObject *parent) :
   createTemporaryTable("search", {});
 
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
-  m_ps_allTagCount.init(m_db, "SELECT tag, count(id) FROM tag GROUP BY tag ORDER BY tag");
 
   m_ps_removeTag.init(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
   m_ps_tagsById.init(m_db, "SELECT tag FROM tag WHERE id = ?1");
@@ -247,17 +246,6 @@ QString ImageDao::hashById(qint64 id)
   ps.bind(1, id);
   ps.step(__FUNCTION__);
   return ps.resultString(0);
-}
-
-QVariantList ImageDao::allTagCount()
-{
-  QVariantList result;
-  while(m_ps_allTagCount.step()) {
-    QVariantList r = { m_ps_allTagCount.resultString(0), m_ps_allTagCount.resultInteger(1) };
-    result.append(QVariant::fromValue(r));
-  }
-  m_ps_allTagCount.reset();
-  return result;
 }
 
 QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {

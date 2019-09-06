@@ -128,7 +128,6 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_idByHash;
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
-  SQLitePreparedStatement m_ps_allTagCount;
 
   QElapsedTimer m_timer;
   QMutex m_writeLock;
@@ -162,7 +161,6 @@ public:
   Q_INVOKABLE QList<QObject *> removeTagMultiple(const QList<QObject *> &irefs, const QString &tag);
 
   Q_INVOKABLE QString hashById(qint64 id);
-  Q_INVOKABLE QVariantList allTagCount();
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);
   Q_INVOKABLE QList<QObject *> all();
