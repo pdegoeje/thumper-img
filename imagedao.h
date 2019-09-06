@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QElapsedTimer>
+#include <QSize>
 
 #include "sqlite3.h"
 
@@ -84,12 +85,16 @@ class ImageRef : public QObject {
   Q_PROPERTY(qint64 fileId MEMBER m_fileId CONSTANT)
   Q_PROPERTY(bool selected MEMBER m_selected NOTIFY selectedChanged)
   Q_PROPERTY(QStringList tags READ tags NOTIFY tagsChanged)
+  Q_PROPERTY(QSize size READ size CONSTANT)
 
   qint64 m_fileId;
   bool m_selected;
   QSet<QString> m_tags;
+  QSize m_size;
+  qint64 m_phash;
 public:
   QStringList tags();
+  QSize size() const { return m_size; }
 signals:
   void selectedChanged();
   void tagsChanged();
@@ -121,7 +126,6 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_removeTag;
   SQLitePreparedStatement m_ps_tagsById;
   SQLitePreparedStatement m_ps_idByHash;
-  SQLitePreparedStatement m_ps_all;
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
   SQLitePreparedStatement m_ps_allTagCount;

@@ -79,8 +79,6 @@ ImageDao::ImageDao(QObject *parent) :
   if(createNewDatabase) {
     CHECK_EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
     CHECK_EXEC("CREATE TABLE tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
-    CHECK_EXEC("CREATE INDEX tag_index ON tag ( tag )");
-    CHECK_EXEC("CREATE TABLE meta (key TEXT PRIMARY KEY, type TEXT, value TEXT)");
   }
 
   if(!tableExists("meta")) {
@@ -107,7 +105,7 @@ ImageDao::ImageDao(QObject *parent) :
 
   if(version == 2) {
     qInfo("Upgrading database format from 2 to 3");
-    CHECK_EXEC("ALTER TABLE store ADD COLUMN phash BLOB");
+    CHECK_EXEC("ALTER TABLE store ADD COLUMN phash INTEGER");
     metaPut(QStringLiteral("version"), version = 3);
   }
 
@@ -119,12 +117,6 @@ ImageDao::ImageDao(QObject *parent) :
   m_ps_removeTag.init(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
   m_ps_tagsById.init(m_db, "SELECT tag FROM tag WHERE id = ?1");
   m_ps_idByHash.init(m_db, "SELECT id FROM store WHERE hash = ?1");
-
-  m_ps_all.init(m_db, "SELECT store.id, group_concat(tag, ' ') "
-                      "FROM store LEFT JOIN tag ON (tag.id = store.id) "
-                      "GROUP BY store.id "
-                      "ORDER BY date ASC");
-
 
   m_ps_transStart.init(m_db, "BEGIN TRANSACTION");
   m_ps_transEnd.init(m_db, "END TRANSACTION");
@@ -315,14 +307,20 @@ QList<QObject *> ImageDao::all()
 
   QList<QObject *> result;
 
+  SQLitePreparedStatement m_ps_all(m_conn,
+    "SELECT store.id, group_concat(tag, ' '), width, height, phash "
+    "FROM store LEFT JOIN tag ON (tag.id = store.id) "
+    "GROUP BY store.id "
+    "ORDER BY date ASC");
+
   while(m_ps_all.step(__FUNCTION__)) {
     ImageRef *ir = new ImageRef();
     ir->m_fileId = m_ps_all.resultInteger(0);
     ir->m_tags = QSet<QString>::fromList(m_ps_all.resultString(1).split(' ', QString::SkipEmptyParts));
+    ir->m_size = { (int)m_ps_all.resultInteger(2), (int)m_ps_all.resultInteger(3) };
+    ir->m_phash = m_ps_all.resultInteger(4);
     result.append(ir);
   }
-
-  m_ps_all.reset();
 
   qDebug() << __FUNCTION__ << timer.elapsed() << "ms";
 
@@ -453,8 +451,8 @@ public:
 
     conn->exec("BEGIN TRANSACTION", __FUNCTION__);
     {
-      SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2 WHERE id = ?3");
-      SQLitePreparedStatement ps(conn, "SELECT id FROM store WHERE width IS NULL");
+      SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
+      SQLitePreparedStatement ps(conn, "SELECT id FROM store WHERE width IS NULL OR phash IS NULL");
       qreal progress = 0.0;
       while(ps.step(__FUNCTION__)) {
         qint64 id = ps.resultInteger(0);
@@ -465,11 +463,46 @@ public:
         QImageReader reader(&buffer);
 
         QSize size = reader.size();
-        qDebug() << __FUNCTION__ << reader.size();
-        ps_update.bind(1, size.width());
-        ps_update.bind(2, size.height());
-        ps_update.bind(3, id);
-        ps_update.exec(__FUNCTION__);
+
+        reader.setBackgroundColor(Qt::darkGray);
+        reader.setScaledSize({8, 8});
+
+        QImage image = reader.read();
+        if(!image.isNull()) {
+          image.convertTo(QImage::Format_Grayscale8);
+          Q_ASSERT(image.width() == 8);
+          Q_ASSERT(image.height() == 8);
+
+          int acc = 0;
+
+          for(int y = 0; y < 8; y++) {
+            const uchar *scanLine = image.constScanLine(y);
+            for(int x = 0; x < 8; x++) {
+              acc += scanLine[x];
+            }
+          }
+
+          int average = (acc + 32) / 64;
+
+          quint64 phash = 0;
+
+          for(int y = 0; y < 8; y++) {
+            const uchar *scanLine = image.constScanLine(y);
+            for(int x = 0; x < 8; x++) {
+              phash <<= 1;
+              phash |= !!(scanLine[x] > average);
+            }
+          }
+
+          qDebug() << id << "phash" << phash << "average" << average;
+
+          qDebug() << __FUNCTION__ << size;
+          ps_update.bind(1, size.width());
+          ps_update.bind(2, size.height());
+          ps_update.bind(3, phash);
+          ps_update.bind(4, id);
+          ps_update.exec(__FUNCTION__);
+        }
 
         //QThread::sleep(1);
         dao->imageDataRelease(idc);

@@ -497,12 +497,27 @@ ApplicationWindow {
         }
       }
 
-      Text {
+      Rectangle {
         visible: gridShowImageIds
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        color: Material.accentColor
-        text: delegateItem.image.fileId
+        //anchors.bottomMargin: 4
+
+        width: labelText.implicitWidth + 8
+        height: labelText.implicitHeight + 4
+
+        color: '#80000000'
+
+        Text {
+          x: 4
+          y: 2
+          id: labelText
+
+          color: Material.accentColor
+          text: "%1 %2x%3".arg(delegateItem.image.fileId)
+                            .arg(delegateItem.image.size.width)
+                            .arg(delegateItem.image.size.height)
+        }
       }
     }
   }
