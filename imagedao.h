@@ -18,7 +18,7 @@ struct SQLitePreparedStatement {
   sqlite3_stmt *m_stmt = nullptr;
 
   void init(sqlite3 *db, const char *statement);
-  void exec(); // step + reset
+  void exec(const char *debug_str = nullptr); // step + reset
   void bind(int param, const QString &text);
   void bind(int param, qint64 value);
   void bind(int param, const QByteArray &data);
@@ -97,6 +97,14 @@ signals:
   friend class ImageDao;
 };
 
+class ImageProcessStatus : public QObject {
+  Q_OBJECT
+public:
+signals:
+  void update(const QString &status, qreal fractionComplete);
+  void complete();
+};
+
 
 class ImageDao : public QObject
 {
@@ -139,6 +147,10 @@ public:
 
   SQLiteConnectionPool *connPool() { return &m_connPool; }
 
+  bool tableExists(const QString &table);
+  Q_INVOKABLE void metaPut(const QString &key, const QVariant &val);
+  Q_INVOKABLE QVariant metaGet(const QString &key);
+
   Q_INVOKABLE bool addTag(ImageRef *iref, const QString &tag);
   Q_INVOKABLE bool removeTag(ImageRef *iref, const QString &tag);
 
@@ -168,6 +180,8 @@ public:
 
   Q_INVOKABLE void timerStart() { m_timer.start(); }
   Q_INVOKABLE qint64 timerElapsed() { return m_timer.elapsed(); }
+
+  Q_INVOKABLE void fixImageMetaData(ImageProcessStatus *status);
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 

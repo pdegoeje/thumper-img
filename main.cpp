@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 
   QGuiApplication app(argc, argv);
 
+  qmlRegisterType<ImageProcessStatus>("thumper", 1, 0, "ImageProcessStatus");
   qmlRegisterType<ImageRef>("thumper", 1, 0, "ImageRef");
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
   qmlRegisterSingletonType<ImageDao>("thumper", 1, 0, "ImageDao",

@@ -11,6 +11,8 @@
 #include <QPainter>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QDataStream>
+#include <QThreadPool>
 
 ImageDao *ImageDao::m_instance;
 
@@ -68,10 +70,39 @@ ImageDao::ImageDao(QObject *parent) :
   m_conn = m_connPool.open();
   m_db = m_conn->m_db;
 
+  QVariant version;
+
   CHECK_EXEC("PRAGMA journal_mode = WAL");
-  CHECK_EXEC("CREATE TABLE IF NOT EXISTS store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
-  CHECK_EXEC("CREATE TABLE IF NOT EXISTS tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
-  CHECK_EXEC("CREATE INDEX IF NOT EXISTS tag_index ON tag ( tag )");
+
+  bool createNewDatabase = !tableExists(QStringLiteral("store"));
+
+  if(createNewDatabase) {
+    CHECK_EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
+    CHECK_EXEC("CREATE TABLE tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
+    CHECK_EXEC("CREATE INDEX tag_index ON tag ( tag )");
+    CHECK_EXEC("CREATE TABLE meta (key TEXT PRIMARY KEY, type TEXT, value TEXT)");
+  }
+
+  if(!tableExists("meta")) {
+    version = 0;
+  } else {
+    version = metaGet(QStringLiteral("version"));
+  }
+
+  qInfo("Database Version: %d", version.toInt());
+
+  if(version == 0) {
+    qInfo("Upgrading database format from 0 to 1");
+    CHECK_EXEC("CREATE TABLE meta (key TEXT PRIMARY KEY, type TEXT, value TEXT)");
+    metaPut(QStringLiteral("version"), version = 1);
+  }
+
+  if(version == 1) {
+    CHECK_EXEC("ALTER TABLE store ADD COLUMN width INTEGER");
+    CHECK_EXEC("ALTER TABLE store ADD COLUMN height INTEGER");
+    CHECK_EXEC("ALTER TABLE store ADD COLUMN origin_url TEXT");
+    metaPut(QStringLiteral("version"), version = 2);
+  }
 
   createTemporaryTable("search", {});
 
@@ -98,6 +129,59 @@ ImageDao::~ImageDao()
 {
   m_connPool.close(m_conn);
   qInfo(__FUNCTION__);
+}
+
+bool ImageDao::tableExists(const QString &table)
+{
+  SQLitePreparedStatement ps;
+  ps.init(m_db, "SELECT name FROM sqlite_master WHERE type='table' AND name=?1");
+  ps.bind(1, table);
+  return ps.step();
+}
+
+void ImageDao::metaPut(const QString &key, const QVariant &val)
+{
+  SQLitePreparedStatement ps(m_conn, "INSERT OR REPLACE INTO meta (key, type, value) VALUES (?1, ?2, ?3)");
+  ps.bind(1, key);
+
+  sqlite3_bind_text(ps.m_stmt, 2, val.typeName(), -1, nullptr);
+  if(val.type() == QVariant::Int) {
+    ps.bind(3, val.toInt());
+  } else if(val.type() == QVariant::String) {
+    ps.bind(3, val.toString());
+  } else {
+    QByteArray data;
+    QDataStream dsw(&data, QIODevice::WriteOnly);
+    dsw << val;
+    ps.bind(3, data);
+  }
+  ps.step(__FUNCTION__);
+}
+
+QVariant ImageDao::metaGet(const QString &key)
+{
+  QVariant result;
+
+  SQLitePreparedStatement ps(m_conn, "SELECT type, value FROM meta WHERE key = ?1");
+  ps.bind(1, key);
+  if(ps.step(__FUNCTION__)) {
+    const char *typeName = (const char *)sqlite3_column_text(ps.m_stmt, 0);
+    QVariant::Type type = QVariant::nameToType(typeName);
+    if(type == QVariant::Int) {
+      result = ps.resultInteger(1);
+    } else if(type == QVariant::String) {
+      result = ps.resultString(1);
+    } else {
+      const char *data = (const char *)sqlite3_column_blob(ps.m_stmt, 1);
+      int bytes = sqlite3_column_bytes(ps.m_stmt, 1);
+
+      QByteArray raw = QByteArray::fromRawData(data, bytes);
+      QDataStream dsr(&raw, QIODevice::ReadOnly);
+      dsr >> result;
+    }
+  }
+
+  return result;
 }
 
 bool ImageDao::addTag(ImageRef *iref, const QString &tag) {
@@ -346,6 +430,62 @@ void ImageDao::unlockWrite()
   m_writeLock.unlock();
 }
 
+class FixImageMetaDataTask : public QRunnable {
+  ImageProcessStatus *status;
+
+public:
+  FixImageMetaDataTask(ImageProcessStatus *status) : status(status) { }
+
+  void run() override {
+    ImageDao *dao = ImageDao::instance();
+    SQLiteConnection *conn = dao->connPool()->open();
+
+    {
+      SQLitePreparedStatement ps(conn, "BEGIN TRANSACTION");
+      ps.exec();
+    }
+
+    {
+      SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2 WHERE id = ?3");
+      SQLitePreparedStatement ps(conn, "SELECT id FROM store WHERE width IS NULL");
+      qreal progress = 0.0;
+      while(ps.step(__FUNCTION__)) {
+        qint64 id = ps.resultInteger(0);
+
+        ImageDao::ImageDataContext idc;
+        dao->imageDataAcquire(idc, id);
+        QBuffer buffer(&idc.data);
+        QImageReader reader(&buffer);
+
+        QSize size = reader.size();
+        qDebug() << __FUNCTION__ << reader.size();
+        ps_update.bind(1, size.width());
+        ps_update.bind(2, size.height());
+        ps_update.bind(3, id);
+        ps_update.exec(__FUNCTION__);
+
+        //QThread::sleep(1);
+        dao->imageDataRelease(idc);
+
+        emit status->update({}, ++progress);
+      }
+      emit status->complete();
+    }
+
+    {
+      SQLitePreparedStatement ps(conn, "END TRANSACTION");
+      ps.exec();
+    }
+
+    dao->connPool()->close(conn);
+  }
+};
+
+void ImageDao::fixImageMetaData(ImageProcessStatus *status)
+{
+  QThreadPool::globalInstance()->start(new FixImageMetaDataTask(status));
+}
+
 QStringList ImageDao::tagsById(qint64 id)
 {
   QStringList tags;
@@ -450,9 +590,9 @@ void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)
   }
 }
 
-void SQLitePreparedStatement::exec()
+void SQLitePreparedStatement::exec(const char *debug_str)
 {
-  step();
+  step(debug_str);
   reset();
 }
 

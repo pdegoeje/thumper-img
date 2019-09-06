@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.7.0"
+  title: "Thumper 1.8.0"
 
   FileUtils {
     id: fileUtils

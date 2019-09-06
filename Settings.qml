@@ -1,6 +1,7 @@
 import QtQuick 2.12
 import QtQuick.Controls 2.12
 import QtQuick.Layouts 1.12
+import thumper 1.0
 
 Popup {
   id: root
@@ -62,6 +63,27 @@ Popup {
           checked: gridShowImageIds
           text: "Show image IDs"
           onClicked: gridShowImageIds = checked
+        }
+
+        RowLayout {
+          Button {
+            id: fixMetaData
+            ImageProcessStatus {
+              id: statusUpdate
+              onUpdate: {
+                fixStatus.text = "Processed %1 images".arg((fractionComplete).toFixed(0))
+              }
+              onComplete: {
+                fixStatus.text = "Complete"
+              }
+            }
+
+            text: "Fix image metadata"
+            onClicked: ImageDao.fixImageMetaData(statusUpdate)
+          }
+          Label {
+            id: fixStatus
+          }
         }
       }
 
