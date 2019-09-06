@@ -85,6 +85,14 @@ Popup {
             id: fixStatus
           }
         }
+
+        Button {
+          text: "Find all images with duplicates"
+          onClicked: {
+            var refList = ImageDao.findAllDuplicates(allSimpleList)
+            setViewList(refList)
+          }
+        }
       }
 
       ColumnLayout {

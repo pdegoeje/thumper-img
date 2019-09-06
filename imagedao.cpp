@@ -1,6 +1,10 @@
 #include "imagedao.h"
 #include "sqlite3.h"
 
+#include <set>
+#include <unordered_set>
+#include <unordered_map>
+
 #include <QImage>
 #include <QImageReader>
 #include <QBuffer>
@@ -238,6 +242,70 @@ QList<QObject *> ImageDao::removeTagMultiple(const QList<QObject *> &irefs, cons
 
   transactionEnd();
   return result;
+}
+
+using PHash = uint64_t;
+using PHashSet = std::unordered_set<PHash>;
+using PHashSetOrdered = std::set<PHash>;
+
+static int findMatches(PHash ref, const PHashSet &corpus, PHashSetOrdered &result, PHash bit, int maxd) {
+  int count = 0;
+  if(maxd == 0) {
+    return 0;
+  }
+  while(bit) {
+    PHash new_hash = ref ^ bit;
+    if(corpus.find(new_hash) != corpus.end()) {
+      result.insert(new_hash);
+      count++;
+    }
+    count += findMatches(new_hash, corpus, result, bit >> 1, maxd - 1);
+    bit >>= 1;
+  }
+  return count;
+}
+
+QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
+{
+  PHashSetOrdered result;
+  PHashSet hashes;
+
+  std::unordered_map<PHash, std::vector<ImageRef *>> lookup;
+
+  for(auto obj : irefs) {
+    ImageRef *iref = qobject_cast<ImageRef *>(obj);
+    if(iref != nullptr) {
+      PHash hash = iref->m_phash;
+      lookup[hash].push_back(iref);
+
+      auto iter = hashes.find(hash);
+      if(iter == hashes.end()) {
+        hashes.insert(iter, hash);
+      } else {
+        // direct hash collision
+        result.insert(hash);
+      }
+    }
+  }
+
+  qInfo("Searching for more matches...");
+  int count = 0;
+  const auto endIter = hashes.end();
+  for(PHash p : hashes) {
+    count += findMatches(p, hashes, result, 1ULL << 63, 3);
+  }
+  qInfo("...done (%d)", count);
+
+  QList<QObject *> output;
+
+  for(auto hash : result) {
+    const auto &vec = lookup[hash];
+    for(auto iref : vec) {
+      output.append(iref);
+    }
+  }
+
+  return output;
 }
 
 QString ImageDao::hashById(qint64 id)

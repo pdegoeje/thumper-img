@@ -159,7 +159,7 @@ public:
 
   Q_INVOKABLE QList<QObject *> addTagMultiple(const QList<QObject *> &irefs, const QString &tag);
   Q_INVOKABLE QList<QObject *> removeTagMultiple(const QList<QObject *> &irefs, const QString &tag);
-
+  Q_INVOKABLE QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs);
   Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);

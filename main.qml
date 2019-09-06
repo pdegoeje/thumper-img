@@ -217,6 +217,17 @@ ApplicationWindow {
     }
   }
 
+  function setViewList(refList) {
+    // force the view to reset, this is a performance optimization
+    list.model = undefined
+
+    viewClear()
+    viewAppendMultiple(refList)
+    rebuildSelectionModel()
+
+    list.model = viewModel
+  }
+
   onSearchTagsModelChanged: {
     console.log("Update Search Tags")
 
@@ -227,14 +238,7 @@ ApplicationWindow {
       refList = allSimpleList
     }   
 
-    // force the view to reset, this is a performance optimization
-    list.model = undefined
-
-    viewClear()
-    viewAppendMultiple(refList)
-    rebuildSelectionModel()
-
-    list.model = viewModel
+    setViewList(refList)
   }
 
   header: ToolBar {
