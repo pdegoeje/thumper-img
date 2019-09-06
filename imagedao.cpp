@@ -98,10 +98,17 @@ ImageDao::ImageDao(QObject *parent) :
   }
 
   if(version == 1) {
+    qInfo("Upgrading database format from 1 to 2");
     CHECK_EXEC("ALTER TABLE store ADD COLUMN width INTEGER");
     CHECK_EXEC("ALTER TABLE store ADD COLUMN height INTEGER");
     CHECK_EXEC("ALTER TABLE store ADD COLUMN origin_url TEXT");
     metaPut(QStringLiteral("version"), version = 2);
+  }
+
+  if(version == 2) {
+    qInfo("Upgrading database format from 2 to 3");
+    CHECK_EXEC("ALTER TABLE store ADD COLUMN phash BLOB");
+    metaPut(QStringLiteral("version"), version = 3);
   }
 
   createTemporaryTable("search", {});
@@ -141,6 +148,8 @@ bool ImageDao::tableExists(const QString &table)
 
 void ImageDao::metaPut(const QString &key, const QVariant &val)
 {
+  lockWrite();
+
   SQLitePreparedStatement ps(m_conn, "INSERT OR REPLACE INTO meta (key, type, value) VALUES (?1, ?2, ?3)");
   ps.bind(1, key);
 
@@ -156,6 +165,8 @@ void ImageDao::metaPut(const QString &key, const QVariant &val)
     ps.bind(3, data);
   }
   ps.step(__FUNCTION__);
+
+  unlockWrite();
 }
 
 QVariant ImageDao::metaGet(const QString &key)
@@ -440,11 +451,7 @@ public:
     ImageDao *dao = ImageDao::instance();
     SQLiteConnection *conn = dao->connPool()->open();
 
-    {
-      SQLitePreparedStatement ps(conn, "BEGIN TRANSACTION");
-      ps.exec();
-    }
-
+    conn->exec("BEGIN TRANSACTION", __FUNCTION__);
     {
       SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2 WHERE id = ?3");
       SQLitePreparedStatement ps(conn, "SELECT id FROM store WHERE width IS NULL");
@@ -472,10 +479,7 @@ public:
       emit status->complete();
     }
 
-    {
-      SQLitePreparedStatement ps(conn, "END TRANSACTION");
-      ps.exec();
-    }
+    conn->exec("END TRANSACTION", __FUNCTION__);
 
     dao->connPool()->close(conn);
   }
