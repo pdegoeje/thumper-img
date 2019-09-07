@@ -27,6 +27,7 @@ ApplicationWindow {
     'cellFillMode',
     'renderPadToFit',
     'renderFilenameToClipboard',
+    'duplicateSearchDistance',
   ]
 
   function loadSettings() {
@@ -73,6 +74,7 @@ ApplicationWindow {
   property bool renderPadToFit: false
   property bool renderFilenameToClipboard: false
   property bool gridShowImageIds: false
+  property int duplicateSearchDistance: 4
 
   property var viewIdToIndexMap: ({})
   ListModel {

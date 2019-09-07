@@ -280,7 +280,7 @@ static void findMatchesLinear(const std::vector<uint64_t> &hashes, std::set<uint
   }
 }
 
-QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
+QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int maxDistance)
 {
   std::set<uint64_t> result;
   std::vector<uint64_t> hashList;
@@ -307,9 +307,7 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
     }
   }
 
-  qInfo("Searching for more matches... (%d)", result.size());
-  findMatchesLinear(hashList, result, 6);
-  qInfo("...done (%d)", result.size());
+  findMatchesLinear(hashList, result, maxDistance);
 
   QList<QObject *> output;
 
@@ -320,7 +318,7 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
     }
   }
 
-  qDebug() <<  __FUNCTION__ << "Time" << timer.elapsed() << "Output" << output.size();
+  qDebug() <<  __FUNCTION__ << "Time:" << timer.elapsed() << "ms Number of results:" << output.size();
 
   return output;
 }
@@ -570,8 +568,6 @@ public:
 
     for(int y = 0; y < 8; y++) {
       const uchar *scanLine = image.constScanLine(y);
-
-      uint8_t prev = scanLine[0];
       for(int x = 0; x < 8; x++) {
         hash <<= 1;
         hash |= scanLine[x] < scanLine[x + 1];

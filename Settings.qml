@@ -86,11 +86,25 @@ Popup {
           }
         }
 
-        Button {
-          text: "Find all images with duplicates"
-          onClicked: {
-            var refList = ImageDao.findAllDuplicates(allSimpleList)
-            setViewList(refList)
+        RowLayout {
+          Button {
+            text: "Find duplicates"
+            onClicked: {
+              var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)
+              setViewList(refList)
+            }
+          }
+          Label {
+            text: "Sloppyness %1".arg(duplicateSearchDistance)
+          }
+
+          Slider {
+            id: maxDistance
+            from: 0
+            to: 10
+            value: duplicateSearchDistance
+            stepSize: 1
+            onMoved: duplicateSearchDistance = value
           }
         }
       }
