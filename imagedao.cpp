@@ -501,6 +501,145 @@ class FixImageMetaDataTask : public QRunnable {
 public:
   FixImageMetaDataTask(ImageProcessStatus *status) : status(status) { }
 
+  /*uint64_t perceptualHash(const QImage &image) {
+    Q_ASSERT(image.width() == 32);
+    Q_ASSERT(image.height() == 32);
+
+    double mat[32][32];
+
+    for(int y = 0; y < 32; y++) {
+      const uchar *scanLine = image.constScanLine(y);
+
+      mat[y][x] = scanLine[x] / 255;
+      for(int x = 0; x < 32; x++) {
+        mean[y * 8 + x] = scanLine[x];
+      }
+    }
+  }*/
+
+  uint64_t blockHash(const QImage &image) {
+    Q_ASSERT(image.width() == 8);
+    Q_ASSERT(image.height() == 8);
+
+    quint8 mean[64];
+
+    for(int y = 0; y < 8; y++) {
+      const uchar *scanLine = image.constScanLine(y);
+      for(int x = 0; x < 8; x++) {
+        mean[y * 8 + x] = scanLine[x];
+      }
+    }
+
+    std::sort(mean, mean + 64);
+    int median = (mean[31] + mean[32]) / 2;
+
+    quint64 phash = 0;
+    for(int y = 0; y < 8; y++) {
+      const uchar *scanLine = image.constScanLine(y);
+      for(int x = 0; x < 8; x++) {
+        phash <<= 1;
+        phash |= scanLine[x] > median;
+      }
+    }
+
+    return phash;
+  }
+
+  uint64_t differenceHash(const QImage &image) {
+    uint64_t hash = 0;
+
+    Q_ASSERT(image.width() == 9);
+    Q_ASSERT(image.height() == 8);
+
+    for(int y = 0; y < 8; y++) {
+      const uchar *scanLine = image.constScanLine(y);
+
+      uint8_t prev = scanLine[0];
+      for(int x = 0; x < 8; x++) {
+        hash <<= 1;
+        hash |= scanLine[x] < scanLine[x + 1];
+      }
+    }
+
+    return hash;
+  }
+
+  QImage autoCrop(const QImage &image) {
+    uint8_t baseColor = image.constScanLine(0)[0];
+
+    int h = image.height();
+    int w = image.width();
+
+    int top = 0;
+    int left = w;
+
+    int bottom = h;
+    int right = 0;
+
+    //image.save("Crop Input.png");
+
+    //qDebug() << "Cropping" << image.size();
+
+    int y = 0;
+    while(y < h && left > 0) {
+      const uint8_t *scanLine = image.constScanLine(y);
+      int x;
+      for(x = 0; x < left; x++) {
+        if(std::abs((scanLine[x] - baseColor)) > 5) {
+          break;
+        }
+      }
+
+      if(x == w) {
+        top = y;
+      } else if(x < left) {
+        // continue
+        left = x;
+      } else {
+
+      }
+      y++;
+    }
+
+    //qDebug() << "Cropping BottomRight";
+
+    y = h - 1;
+    while(y >= 0 && right < w) {
+      const uint8_t *scanLine = image.constScanLine(y);
+      int x;
+      for(x = w - 1; x >= right; x--) {
+        if(scanLine[x] != baseColor) {
+          break;
+        }
+      }
+      //qDebug() << "x" << x << "right" << right << "bottom" << bottom;
+
+      if(x == -1) {
+        bottom = y;
+      } else if(x >= right) {
+        right = x + 1;
+      } else {
+        // continue
+      }
+      y--;
+    }
+
+    if(bottom <= top) {
+      //qDebug() << "Image is blank";
+      return image;
+    }
+
+    if(w != right || h != bottom || left != 0 || top != 0) {
+      //qDebug() << "Crop offset" << left << top << w - right << h - bottom << bottom - top << right - left;
+      image.copy(left, top, right - left, bottom - top);
+       //.save("Crop Output.png");
+    }
+
+    //qDebug() << "Crop done" << right - left << bottom - top;
+
+    return image;
+  }
+
   void run() override {
     ImageDao *dao = ImageDao::instance();
     SQLiteConnection *conn = dao->connPool()->open();
@@ -508,7 +647,7 @@ public:
     conn->exec("BEGIN TRANSACTION", __FUNCTION__);
     {
       SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
-      SQLitePreparedStatement ps(conn, "SELECT id FROM store WHERE width IS NULL OR phash IS NULL");
+      SQLitePreparedStatement ps(conn, "SELECT id FROM store ORDER BY id");
       qreal progress = 0.0;
       while(ps.step(__FUNCTION__)) {
         qint64 id = ps.resultInteger(0);
@@ -521,36 +660,26 @@ public:
         QSize size = reader.size();
 
         reader.setBackgroundColor(Qt::darkGray);
-        reader.setScaledSize({8, 8});
+        reader.setScaledSize({128, 128});
+        //reader.setScaledSize({9, 8});
 
         QImage image = reader.read();
         if(!image.isNull()) {
+
+
+          //image.save("test_large.png");
           image.convertTo(QImage::Format_Grayscale8);
-          Q_ASSERT(image.width() == 8);
-          Q_ASSERT(image.height() == 8);
-
-          int acc = 0;
-
-          for(int y = 0; y < 8; y++) {
-            const uchar *scanLine = image.constScanLine(y);
-            for(int x = 0; x < 8; x++) {
-              acc += scanLine[x];
-            }
+          image = autoCrop(image);
+          image = image.scaled(9, 8, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+          image.convertTo(QImage::Format_Grayscale8);
+          if(image.isNull()) {
+            qWarning("wtf");
           }
+          //image.save("test.png");
+          //exit(0);
 
-          int average = (acc + 32) / 64;
-
-          quint64 phash = 0;
-
-          for(int y = 0; y < 8; y++) {
-            const uchar *scanLine = image.constScanLine(y);
-            for(int x = 0; x < 8; x++) {
-              phash <<= 1;
-              phash |= !!(scanLine[x] > average);
-            }
-          }
-
-          qDebug() << id << "phash" << phash << "average" << average;
+          //uint64_t phash = blockHash(image);
+          uint64_t phash = differenceHash(image);
 
           qDebug() << __FUNCTION__ << size;
           ps_update.bind(1, size.width());
