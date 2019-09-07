@@ -526,14 +526,19 @@ public:
     for(int y = 0; y < 32; y++) {
       const uchar *scanLine = image.constScanLine(y);
       for(int x = 0; x < 32; x++) {
-        mat[y][x] = (double)scanLine[x] / 0xFF;
+        mat[y][x] = (double)scanLine[x];
       }
     }
 
+    // Calculate 2D DCT type II.
+    // Note that we don't care about the scaling, as we're going to compare to the mean anyway.
+
+    // Transform each row
     for(int y = 0; y < 32; y++) {
       FastDctLee_transform(mat[y], 32);
     }
 
+    // Transform each column
     for(int x = 0; x < 32; x++) {
       double col[32];
       for(int y = 0; y < 32; y++) {
@@ -545,20 +550,22 @@ public:
       }
     }
 
-    // ignore DC component
-    double acc = -mat[0][0];
-    for(int y = 0; y < 8; y++) {
-      for(int x = 0; x < 8; x++) {
-        acc += mat[y][x];
-      }
+    // Calculate the mean of each cosine magnitude, but excluding the DC component,
+    double acc = 0;
+    for(int i = 1; i < 65; i++) {
+      int y = i / 8;
+      int x = i % 8;
+      acc += mat[y][x];
     }
-    double mean = acc / 63;
+    double mean = acc / 64;
+
     uint64_t hash = 0;
-    for(int y = 0; y < 8; y++) {
-      for(int x = 0; x < 8; x++) {
-        hash <<= 1;
-        hash |= mat[y][x] > mean;
-      }
+    for(int i = 1; i < 65; i++) {
+      int y = i / 8;
+      int x = i % 8;
+
+      hash <<= 1;
+      hash |= mat[y][x] > mean;
     }
 
     return hash;
