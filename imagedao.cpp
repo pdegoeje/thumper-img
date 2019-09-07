@@ -538,8 +538,8 @@ public:
       FastDctLee_transform(mat[y], 32);
     }
 
-    // Transform each column
-    for(int x = 0; x < 32; x++) {
+    // Transform each column (we only care about the first 8 columns).
+    for(int x = 0; x < 8; x++) {
       double col[32];
       for(int y = 0; y < 32; y++) {
         col[y] = mat[y][x];
@@ -550,7 +550,8 @@ public:
       }
     }
 
-    // Calculate the mean of each cosine magnitude, but excluding the DC component,
+    // Calculate the mean of each cosine magnitude, but excluding the DC component.
+    // The lowest 8x8 frequencies are taken.
     double acc = 0;
     for(int i = 1; i < 65; i++) {
       int y = i / 8;
