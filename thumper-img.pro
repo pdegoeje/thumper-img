@@ -40,6 +40,7 @@ HEADERS += \
     fileutils.h \
     imagedao.h \
     imageprocessor.h \
+    simpleset.h \
     sqlite3.h \
     taglist.h \
     thumperimageprovider.h

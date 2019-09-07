@@ -244,115 +244,47 @@ QList<QObject *> ImageDao::removeTagMultiple(const QList<QObject *> &irefs, cons
   return result;
 }
 
-using PHash = uint64_t;
-using PHashSet = std::unordered_set<PHash>;
-using PHashSetOrdered = std::set<PHash>;
+static const uint64_t m1 = 0x5555555555555555; //binary: 0101...
+static const uint64_t m2 = 0x3333333333333333; //binary: 00110011..
+static const uint64_t m4 = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
 
-struct SimpleSet {
-  struct Bucket {
-    int size;
-    int count;
-    PHash data[];
-  };
+static int popcount64b(uint64_t x) {
+  x -= (x >> 1) & m1;             //put count of each 2 bits into those 2 bits
+  x = (x & m2) + ((x >> 2) & m2); //put count of each 4 bits into those 4 bits
+  x = (x + (x >> 4)) & m4;        //put count of each 8 bits into those 8 bits
+  x += x >>  8;  //put count of each 16 bits into their lowest 8 bits
+  x += x >> 16;  //put count of each 32 bits into their lowest 8 bits
+  x += x >> 32;  //put count of each 64 bits into their lowest 8 bits
+  return x & 0x7f;
+}
 
-  Bucket **keys;
 
-  int hashBits;
-  PHash mask;
-  int nbuckets;
+static int hammingDistance(uint64_t a, uint64_t b) {
+  return popcount64b(a ^ b);
+}
 
-  static constexpr auto initialBucketSize = 2;
-  static constexpr auto bucketSizeExpansionFactor = 2;
 
-  int simpleHash(PHash key) const {
-    return ((uint32_t)key ^ (uint32_t)(key >> 32)) & mask;
-  }
-
-  SimpleSet(int v) {
-    int r = 0;
-    while (v >>= 1) {
-      r++;
+static void findMatchesLinear(const std::vector<uint64_t> &hashes, std::set<uint64_t> &result, int maxd) {
+  auto iter_end = hashes.end();
+  for(auto i = hashes.begin(); i != iter_end; ++i) {
+    bool found_match = false;
+    for(auto j = i + 1; j != iter_end; ++j) {
+      if(hammingDistance(*i, *j) <= maxd) {
+        result.insert(*j);
+        found_match = true;
+      }
     }
-
-    hashBits = r;
-    nbuckets = 1 << hashBits;
-    mask = nbuckets - 1;
-
-    keys = new Bucket *[nbuckets] { nullptr };
-  }
-
-  ~SimpleSet() {
-    for(int i = 0; i < nbuckets; i++) {
-      free(keys[i]);
+    if(found_match) {
+      result.insert(*i);
     }
-    delete[] keys;
   }
-
-  void append(int i, PHash key) {
-    Bucket *cur = keys[i];
-    if(cur == nullptr) {
-      Bucket *n = (Bucket *)malloc(sizeof(Bucket) + initialBucketSize * sizeof(PHash));
-      n->size = initialBucketSize;
-      n->count = 0;
-      keys[i] = n;
-      cur = n;
-    } else if(cur->count == cur->size) {
-      int new_size = bucketSizeExpansionFactor * cur->size;
-      Bucket *n = (Bucket *)realloc(cur, sizeof(Bucket) + new_size * sizeof(PHash));
-      n->size = new_size;
-      keys[i] = n;
-      cur = n;
-    }
-    cur->data[cur->count++] = key;
-  }
-
-  bool has(int i, PHash key) const {
-    Bucket *cur = keys[i];
-    if(cur == nullptr) {
-      return false;
-    }
-    for(int i = 0; i < cur->count; i++) {
-      if(cur->data[i] == key)
-        return true;
-    }
-
-    return false;
-  }
-
-  void insert(PHash key) {
-    append(simpleHash(key), key);
-  }
-
-  bool contains(PHash key) const {
-    return has(simpleHash(key), key);
-  }
-};
-
-static int findMatches(PHash ref, const SimpleSet &corpus, PHashSetOrdered &result, PHash bit, int maxd) {
-  if(maxd == 0) {
-    return 0;
-  }
-
-  int count = 0;
-  while(bit) {
-    PHash new_hash = ref ^ bit;
-    if(corpus.contains(new_hash)) {
-      result.insert(new_hash);
-      count++;
-    }
-    count += findMatches(new_hash, corpus, result, bit >> 1, maxd - 1);
-    bit >>= 1;
-  }
-  return count;
 }
 
 QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
 {
-  PHashSetOrdered result;
-  SimpleSet hashSet(irefs.length());
-  std::vector<PHash> hashList;
-
-  std::unordered_map<PHash, std::vector<ImageRef *>> lookup;
+  std::set<uint64_t> result;
+  std::vector<uint64_t> hashList;
+  std::unordered_map<uint64_t, std::vector<ImageRef *>> lookup;
 
   QElapsedTimer timer;
   timer.start();
@@ -360,25 +292,24 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
   for(auto obj : irefs) {
     ImageRef *iref = qobject_cast<ImageRef *>(obj);
     if(iref != nullptr) {
-      PHash hash = iref->m_phash;
-      lookup[hash].push_back(iref);
+      uint64_t hash = iref->m_phash;
 
-      if(!hashSet.contains(hash)) {
-        hashSet.insert(hash);
-        hashList.push_back(hash);
-      } else {
-        // direct hash collision
+      auto iter = lookup.find(hash);
+      if(iter != lookup.end()) {
+        // hash already exists
         result.insert(hash);
+        iter->second.push_back(iref);
+      } else {
+        // new hash
+        hashList.push_back(hash);
+        lookup.emplace(hash, std::vector<ImageRef *>{ iref });
       }
     }
   }
 
-  qInfo("Searching for more matches...");
-  int count = 0;
-  for(PHash p : hashList) {
-    count += findMatches(p, hashSet, result, 1ULL << 63, 3);
-  }
-  qInfo("...done (%d)", count);
+  qInfo("Searching for more matches... (%d)", result.size());
+  findMatchesLinear(hashList, result, 6);
+  qInfo("...done (%d)", result.size());
 
   QList<QObject *> output;
 
@@ -389,7 +320,7 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
     }
   }
 
-  qDebug() <<  __FUNCTION__ << "Time" << timer.elapsed();
+  qDebug() <<  __FUNCTION__ << "Time" << timer.elapsed() << "Output" << output.size();
 
   return output;
 }
