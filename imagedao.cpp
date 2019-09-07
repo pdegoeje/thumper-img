@@ -1,5 +1,6 @@
 #include "imagedao.h"
 #include "sqlite3.h"
+#include "dct/fast-dct-lee.h"
 
 #include <set>
 #include <unordered_set>
@@ -516,7 +517,7 @@ class FixImageMetaDataTask : public QRunnable {
 public:
   FixImageMetaDataTask(ImageProcessStatus *status) : status(status) { }
 
-  /*uint64_t perceptualHash(const QImage &image) {
+  uint64_t perceptualHash(const QImage &image) {
     Q_ASSERT(image.width() == 32);
     Q_ASSERT(image.height() == 32);
 
@@ -524,13 +525,44 @@ public:
 
     for(int y = 0; y < 32; y++) {
       const uchar *scanLine = image.constScanLine(y);
-
-      mat[y][x] = scanLine[x] / 255;
       for(int x = 0; x < 32; x++) {
-        mean[y * 8 + x] = scanLine[x];
+        mat[y][x] = (double)scanLine[x] / 0xFF;
       }
     }
-  }*/
+
+    for(int y = 0; y < 32; y++) {
+      FastDctLee_transform(mat[y], 32);
+    }
+
+    for(int x = 0; x < 32; x++) {
+      double col[32];
+      for(int y = 0; y < 32; y++) {
+        col[y] = mat[y][x];
+      }
+      FastDctLee_transform(col, 32);
+      for(int y = 0; y < 32; y++) {
+        mat[y][x] = col[y];
+      }
+    }
+
+    // ignore DC component
+    double acc = -mat[0][0];
+    for(int y = 0; y < 8; y++) {
+      for(int x = 0; x < 8; x++) {
+        acc += mat[y][x];
+      }
+    }
+    double mean = acc / 63;
+    uint64_t hash = 0;
+    for(int y = 0; y < 8; y++) {
+      for(int x = 0; x < 8; x++) {
+        hash <<= 1;
+        hash |= mat[y][x] > mean;
+      }
+    }
+
+    return hash;
+  }
 
   uint64_t blockHash(const QImage &image) {
     Q_ASSERT(image.width() == 8);
@@ -672,9 +704,9 @@ public:
         if(!image.isNull()) {
           image.convertTo(QImage::Format_Grayscale8);
           image = autoCrop(image);
-          image = image.scaled(9, 8, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+          image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
           image.convertTo(QImage::Format_Grayscale8);
-          uint64_t phash = differenceHash(image);
+          uint64_t phash = perceptualHash(image);
 
           ps_update.bind(1, size.width());
           ps_update.bind(2, size.height());
