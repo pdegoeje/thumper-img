@@ -565,7 +565,7 @@ public:
   }
 
   QImage autoCrop(const QImage &image) {
-    uint8_t baseColor = image.constScanLine(0)[0];
+    int baseColor = image.constScanLine(0)[0];
 
     int h = image.height();
     int w = image.width();
@@ -575,10 +575,6 @@ public:
 
     int bottom = h;
     int right = 0;
-
-    //image.save("Crop Input.png");
-
-    //qDebug() << "Cropping" << image.size();
 
     int y = 0;
     while(y < h && left > 0) {
@@ -601,18 +597,15 @@ public:
       y++;
     }
 
-    //qDebug() << "Cropping BottomRight";
-
     y = h - 1;
     while(y >= 0 && right < w) {
       const uint8_t *scanLine = image.constScanLine(y);
       int x;
       for(x = w - 1; x >= right; x--) {
-        if(scanLine[x] != baseColor) {
+        if(std::abs((scanLine[x] - baseColor)) > 5) {
           break;
         }
       }
-      //qDebug() << "x" << x << "right" << right << "bottom" << bottom;
 
       if(x == -1) {
         bottom = y;
@@ -625,17 +618,16 @@ public:
     }
 
     if(bottom <= top) {
-      //qDebug() << "Image is blank";
-      return image;
+      // Blank image
+      left = 0;
+      top = 0;
+      right = 1;
+      bottom = 1;
     }
 
     if(w != right || h != bottom || left != 0 || top != 0) {
-      //qDebug() << "Crop offset" << left << top << w - right << h - bottom << bottom - top << right - left;
       image.copy(left, top, right - left, bottom - top);
-       //.save("Crop Output.png");
     }
-
-    //qDebug() << "Crop done" << right - left << bottom - top;
 
     return image;
   }
@@ -665,23 +657,12 @@ public:
 
         QImage image = reader.read();
         if(!image.isNull()) {
-
-
-          //image.save("test_large.png");
           image.convertTo(QImage::Format_Grayscale8);
           image = autoCrop(image);
           image = image.scaled(9, 8, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
           image.convertTo(QImage::Format_Grayscale8);
-          if(image.isNull()) {
-            qWarning("wtf");
-          }
-          //image.save("test.png");
-          //exit(0);
-
-          //uint64_t phash = blockHash(image);
           uint64_t phash = differenceHash(image);
 
-          qDebug() << __FUNCTION__ << size;
           ps_update.bind(1, size.width());
           ps_update.bind(2, size.height());
           ps_update.bind(3, phash);
@@ -689,7 +670,6 @@ public:
           ps_update.exec(__FUNCTION__);
         }
 
-        //QThread::sleep(1);
         dao->imageDataRelease(idc);
 
         emit status->update({}, ++progress);
