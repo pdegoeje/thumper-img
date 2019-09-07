@@ -248,14 +248,95 @@ using PHash = uint64_t;
 using PHashSet = std::unordered_set<PHash>;
 using PHashSetOrdered = std::set<PHash>;
 
-static int findMatches(PHash ref, const PHashSet &corpus, PHashSetOrdered &result, PHash bit, int maxd) {
-  int count = 0;
+struct SimpleSet {
+  struct Bucket {
+    int size;
+    int count;
+    PHash data[];
+  };
+
+  Bucket **keys;
+
+  int hashBits;
+  PHash mask;
+  int nbuckets;
+
+  static constexpr auto initialBucketSize = 2;
+  static constexpr auto bucketSizeExpansionFactor = 2;
+
+  int simpleHash(PHash key) const {
+    return ((uint32_t)key ^ (uint32_t)(key >> 32)) & mask;
+  }
+
+  SimpleSet(int v) {
+    int r = 0;
+    while (v >>= 1) {
+      r++;
+    }
+
+    hashBits = r;
+    nbuckets = 1 << hashBits;
+    mask = nbuckets - 1;
+
+    keys = new Bucket *[nbuckets] { nullptr };
+  }
+
+  ~SimpleSet() {
+    for(int i = 0; i < nbuckets; i++) {
+      free(keys[i]);
+    }
+    delete[] keys;
+  }
+
+  void append(int i, PHash key) {
+    Bucket *cur = keys[i];
+    if(cur == nullptr) {
+      Bucket *n = (Bucket *)malloc(sizeof(Bucket) + initialBucketSize * sizeof(PHash));
+      n->size = initialBucketSize;
+      n->count = 0;
+      keys[i] = n;
+      cur = n;
+    } else if(cur->count == cur->size) {
+      int new_size = bucketSizeExpansionFactor * cur->size;
+      Bucket *n = (Bucket *)realloc(cur, sizeof(Bucket) + new_size * sizeof(PHash));
+      n->size = new_size;
+      keys[i] = n;
+      cur = n;
+    }
+    cur->data[cur->count++] = key;
+  }
+
+  bool has(int i, PHash key) const {
+    Bucket *cur = keys[i];
+    if(cur == nullptr) {
+      return false;
+    }
+    for(int i = 0; i < cur->count; i++) {
+      if(cur->data[i] == key)
+        return true;
+    }
+
+    return false;
+  }
+
+  void insert(PHash key) {
+    append(simpleHash(key), key);
+  }
+
+  bool contains(PHash key) const {
+    return has(simpleHash(key), key);
+  }
+};
+
+static int findMatches(PHash ref, const SimpleSet &corpus, PHashSetOrdered &result, PHash bit, int maxd) {
   if(maxd == 0) {
     return 0;
   }
+
+  int count = 0;
   while(bit) {
     PHash new_hash = ref ^ bit;
-    if(corpus.find(new_hash) != corpus.end()) {
+    if(corpus.contains(new_hash)) {
       result.insert(new_hash);
       count++;
     }
@@ -268,9 +349,13 @@ static int findMatches(PHash ref, const PHashSet &corpus, PHashSetOrdered &resul
 QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
 {
   PHashSetOrdered result;
-  PHashSet hashes;
+  SimpleSet hashSet(irefs.length());
+  std::vector<PHash> hashList;
 
   std::unordered_map<PHash, std::vector<ImageRef *>> lookup;
+
+  QElapsedTimer timer;
+  timer.start();
 
   for(auto obj : irefs) {
     ImageRef *iref = qobject_cast<ImageRef *>(obj);
@@ -278,9 +363,9 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
       PHash hash = iref->m_phash;
       lookup[hash].push_back(iref);
 
-      auto iter = hashes.find(hash);
-      if(iter == hashes.end()) {
-        hashes.insert(iter, hash);
+      if(!hashSet.contains(hash)) {
+        hashSet.insert(hash);
+        hashList.push_back(hash);
       } else {
         // direct hash collision
         result.insert(hash);
@@ -290,9 +375,8 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
 
   qInfo("Searching for more matches...");
   int count = 0;
-  const auto endIter = hashes.end();
-  for(PHash p : hashes) {
-    count += findMatches(p, hashes, result, 1ULL << 63, 3);
+  for(PHash p : hashList) {
+    count += findMatches(p, hashSet, result, 1ULL << 63, 3);
   }
   qInfo("...done (%d)", count);
 
@@ -304,6 +388,8 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs)
       output.append(iref);
     }
   }
+
+  qDebug() <<  __FUNCTION__ << "Time" << timer.elapsed();
 
   return output;
 }
