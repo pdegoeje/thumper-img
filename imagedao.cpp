@@ -281,11 +281,86 @@ static void findMatchesLinear(const std::vector<uint64_t> &hashes, std::set<uint
   }
 }
 
+using HashToCluster = std::unordered_map<uint64_t, int>;
+using ClusterToHashList = std::unordered_map<int, std::vector<uint64_t>>;
+
+static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &hashToCluster, ClusterToHashList &clusters, int &nextClusterId, int maxd) {
+  //std::unordered_map<uint64_t, int> hashToCluster;
+  //std::unordered_map<int, std::vector<uint64_t>> clusters;
+
+//  int nextClusterId = 0;
+
+  auto iter_end = hashes.end();
+  for(auto i = hashes.begin(); i != iter_end; ++i) {
+    uint64_t hash_i = *i;
+    for(auto j = i + 1; j != iter_end; ++j) {
+      uint64_t hash_j = *j;
+      if(hammingDistance(hash_i, hash_j) <= maxd) {
+        // found a pair
+        auto icluster = hashToCluster.find(hash_i);
+        auto jcluster = hashToCluster.find(hash_j);
+
+        auto End = hashToCluster.end();
+
+        if(icluster == End && jcluster == End) {
+          // both don't belong to a cluster
+          int id = nextClusterId++;
+
+          clusters[id].push_back(hash_i);
+          clusters[id].push_back(hash_j);
+
+          hashToCluster[hash_i] = id;
+          hashToCluster[hash_j] = id;
+
+          qDebug() << "create new cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+        } else if(icluster == End && jcluster != End) {
+          // j already belongs to a cluster
+          int id = jcluster->second;
+          clusters[id].push_back(hash_i);
+          hashToCluster[hash_i] = id;
+
+          qDebug() << "merge into j cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+        } else if(icluster != End && jcluster == End) {
+          // i already belongs to a cluster
+          int id = icluster->second;
+          clusters[id].push_back(hash_j);
+          hashToCluster[hash_j] = id;
+
+          qDebug() << "merge into i cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+        } else if(icluster->second != jcluster->second) {
+          // both belong to different cluster
+          int idi = icluster->second;
+          int idj = jcluster->second;
+
+          // merge jcluster with icluster
+          auto &icluster_data = clusters[idi];
+          const auto &jcluster_data = clusters[idj];
+
+          for(auto h : jcluster_data) {
+            icluster_data.push_back(h);
+            hashToCluster[h] = idi;
+          }
+
+          // delete jcluster
+          clusters.erase(idj);
+
+          qDebug() << "merge clusters" << idi << "and" << idj << "hashi" << hash_i << "hash_j" << hash_j;
+        } else {
+          // both belong to the same cluster already, nothing to do
+        }
+      }
+    }
+  }
+}
+
 QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int maxDistance)
 {
-  std::set<uint64_t> result;
   std::vector<uint64_t> hashList;
-  std::unordered_map<uint64_t, std::vector<ImageRef *>> lookup;
+  std::unordered_map<uint64_t, std::vector<ImageRef *>> irefLookup;
+
+  ClusterToHashList clusterToHashList;
+  HashToCluster hashToCluster;
+  int nextClusterId = 0;
 
   QElapsedTimer timer;
   timer.start();
@@ -295,27 +370,48 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int 
     if(iref != nullptr) {
       uint64_t hash = iref->m_phash;
 
-      auto iter = lookup.find(hash);
-      if(iter != lookup.end()) {
+      auto irefIter = irefLookup.find(hash);
+      if(irefIter != irefLookup.end()) {
         // hash already exists
-        result.insert(hash);
-        iter->second.push_back(iref);
+        auto cIter = hashToCluster.find(hash);
+        if(cIter != hashToCluster.end()) {
+          // pre-existing cluster, add current hash
+          int id = cIter->second;
+          clusterToHashList[id].push_back(hash);
+
+          qDebug() << "add duplicate hash to pre-existing cluster" << id << "hash" << hash;
+        } else {
+          // create a new cluster
+          int id = nextClusterId++;
+          hashToCluster[hash] = id;
+          clusterToHashList[id].push_back(hash);
+
+          qDebug() << "add duplicate hash to new cluster" << id << "hash" << hash;
+        }
+
+        irefIter->second.push_back(iref);
       } else {
         // new hash
         hashList.push_back(hash);
-        lookup.emplace(hash, std::vector<ImageRef *>{ iref });
+        irefLookup.emplace(hash, std::vector<ImageRef *>{ iref });
       }
     }
   }
 
-  findMatchesLinear(hashList, result, maxDistance);
+  qDebug() << "pre-existing clusters" << nextClusterId;
+
+  findClusters(hashList, hashToCluster, clusterToHashList, nextClusterId, maxDistance);
 
   QList<QObject *> output;
 
-  for(auto hash : result) {
-    const auto &vec = lookup[hash];
-    for(auto iref : vec) {
-      output.append(iref);
+  // for each cluster
+  for(const auto &p : clusterToHashList) {
+    // for each hash
+    for(uint64_t h : p.second) {
+      // for each iref
+      for(auto irefptr : irefLookup[h]) {
+        output.push_back(irefptr);
+      }
     }
   }
 
@@ -550,7 +646,7 @@ public:
       }
     }
 
-    // Calculate the mean of each cosine magnitude, but excluding the DC component.
+    // Calculate the mean of each cosine amplitude, but exclude the DC component.
     // The lowest 8x8 frequencies are taken.
     double acc = 0;
     for(int i = 1; i < 65; i++) {
@@ -617,7 +713,7 @@ public:
     return hash;
   }
 
-  QImage autoCrop(const QImage &image) {
+  QImage autoCrop(const QImage &image, int threshold) {
     int baseColor = image.constScanLine(0)[0];
 
     int h = image.height();
@@ -634,7 +730,7 @@ public:
       const uint8_t *scanLine = image.constScanLine(y);
       int x;
       for(x = 0; x < left; x++) {
-        if(std::abs((scanLine[x] - baseColor)) > 5) {
+        if(std::abs((scanLine[x] - baseColor)) > threshold) {
           break;
         }
       }
@@ -655,7 +751,7 @@ public:
       const uint8_t *scanLine = image.constScanLine(y);
       int x;
       for(x = w - 1; x >= right; x--) {
-        if(std::abs((scanLine[x] - baseColor)) > 5) {
+        if(std::abs((scanLine[x] - baseColor)) > threshold) {
           break;
         }
       }
@@ -711,7 +807,7 @@ public:
         QImage image = reader.read();
         if(!image.isNull()) {
           image.convertTo(QImage::Format_Grayscale8);
-          image = autoCrop(image);
+          image = autoCrop(image, 10);
           image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
           image.convertTo(QImage::Format_Grayscale8);
           uint64_t phash = perceptualHash(image);
