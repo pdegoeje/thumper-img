@@ -285,17 +285,13 @@ using HashToCluster = std::unordered_map<uint64_t, int>;
 using ClusterToHashList = std::unordered_map<int, std::vector<uint64_t>>;
 
 static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &hashToCluster, ClusterToHashList &clusters, int &nextClusterId, int maxd) {
-  //std::unordered_map<uint64_t, int> hashToCluster;
-  //std::unordered_map<int, std::vector<uint64_t>> clusters;
-
-//  int nextClusterId = 0;
-
   auto iter_end = hashes.end();
   for(auto i = hashes.begin(); i != iter_end; ++i) {
     uint64_t hash_i = *i;
     for(auto j = i + 1; j != iter_end; ++j) {
       uint64_t hash_j = *j;
-      if(hammingDistance(hash_i, hash_j) <= maxd) {
+      int distance = hammingDistance(hash_i, hash_j);
+      if(distance <= maxd) {
         // found a pair
         auto icluster = hashToCluster.find(hash_i);
         auto jcluster = hashToCluster.find(hash_j);
@@ -312,21 +308,21 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
           hashToCluster[hash_i] = id;
           hashToCluster[hash_j] = id;
 
-          qDebug() << "create new cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+          qDebug() << "create new cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster == End && jcluster != End) {
           // j already belongs to a cluster
           int id = jcluster->second;
           clusters[id].push_back(hash_i);
           hashToCluster[hash_i] = id;
 
-          qDebug() << "merge into j cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+          qDebug() << "merge into j cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster != End && jcluster == End) {
           // i already belongs to a cluster
           int id = icluster->second;
           clusters[id].push_back(hash_j);
           hashToCluster[hash_j] = id;
 
-          qDebug() << "merge into i cluster" << id << "hashi" << hash_i << "hash_j" << hash_j;
+          qDebug() << "merge into i cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster->second != jcluster->second) {
           // both belong to different cluster
           int idi = icluster->second;
@@ -344,7 +340,7 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
           // delete jcluster
           clusters.erase(idj);
 
-          qDebug() << "merge clusters" << idi << "and" << idj << "hashi" << hash_i << "hash_j" << hash_j;
+          qDebug() << "merge clusters" << idi << "and" << idj << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else {
           // both belong to the same cluster already, nothing to do
         }
@@ -775,7 +771,7 @@ public:
     }
 
     if(w != right || h != bottom || left != 0 || top != 0) {
-      image.copy(left, top, right - left, bottom - top);
+      return image.copy(left, top, right - left, bottom - top);
     }
 
     return image;
@@ -807,10 +803,14 @@ public:
         QImage image = reader.read();
         if(!image.isNull()) {
           image.convertTo(QImage::Format_Grayscale8);
+          //image.save(QStringLiteral("%1_crop_input.png").arg(id));
           image = autoCrop(image, 10);
+          //image.save(QStringLiteral("%1_crop_output.png").arg(id));
           image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
           image.convertTo(QImage::Format_Grayscale8);
+          //image.save(QStringLiteral("%1_phash_input.png").arg(id));
           uint64_t phash = perceptualHash(image);
+          qDebug() << "id" << id << "phash" << phash;
 
           ps_update.bind(1, size.width());
           ps_update.bind(2, size.height());

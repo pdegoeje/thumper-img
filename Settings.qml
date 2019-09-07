@@ -101,7 +101,7 @@ Popup {
           Slider {
             id: maxDistance
             from: 0
-            to: 10
+            to: 20
             value: duplicateSearchDistance
             stepSize: 1
             onMoved: duplicateSearchDistance = value
