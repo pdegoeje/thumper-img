@@ -324,7 +324,7 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
 
           qDebug() << "merge into i cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster->second != jcluster->second) {
-          // both belong to different cluster
+          // both belong to different clusters
           int idi = icluster->second;
           int idj = jcluster->second;
 
@@ -370,19 +370,12 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int 
       if(irefIter != irefLookup.end()) {
         // hash already exists
         auto cIter = hashToCluster.find(hash);
-        if(cIter != hashToCluster.end()) {
-          // pre-existing cluster, add current hash
-          int id = cIter->second;
-          clusterToHashList[id].push_back(hash);
-
-          qDebug() << "add duplicate hash to pre-existing cluster" << id << "hash" << hash;
-        } else {
-          // create a new cluster
+        if(cIter == hashToCluster.end()) {
+          // Hash was seen once before, but a cluster doesn't yet exist.
           int id = nextClusterId++;
           hashToCluster[hash] = id;
           clusterToHashList[id].push_back(hash);
-
-          qDebug() << "add duplicate hash to new cluster" << id << "hash" << hash;
+          qDebug() << "create new cluster" << id << "for hash" << hash;
         }
 
         irefIter->second.push_back(iref);
@@ -402,10 +395,14 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int 
 
   // for each cluster
   for(const auto &p : clusterToHashList) {
+    qDebug() << "Cluster Id" << p.first;
     // for each hash
     for(uint64_t h : p.second) {
       // for each iref
+      qDebug() << "  Hash" << h;
       for(auto irefptr : irefLookup[h]) {
+
+        qDebug() << "    Iref" << irefptr->m_fileId;
         output.push_back(irefptr);
       }
     }
@@ -810,7 +807,7 @@ public:
           image.convertTo(QImage::Format_Grayscale8);
           //image.save(QStringLiteral("%1_phash_input.png").arg(id));
           uint64_t phash = perceptualHash(image);
-          qDebug() << "id" << id << "phash" << phash;
+          //qDebug() << "id" << id << "phash" << phash;
 
           ps_update.bind(1, size.width());
           ps_update.bind(2, size.height());
