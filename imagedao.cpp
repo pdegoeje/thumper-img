@@ -487,7 +487,7 @@ QList<QObject *> ImageDao::search(const QList<QObject *> &irefs, const QStringLi
   return result;
 }
 
-QList<QObject *> ImageDao::all()
+QList<QObject *> ImageDao::all(bool includeDeleted)
 {
   QElapsedTimer timer;
   timer.start();
@@ -497,8 +497,11 @@ QList<QObject *> ImageDao::all()
   SQLitePreparedStatement m_ps_all(m_conn,
     "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted "
     "FROM image LEFT JOIN tag ON (tag.id = image.id) "
+    "WHERE image.deleted IS NULL OR image.deleted <= ?1"
     "GROUP BY image.id "
     "ORDER BY date ASC");
+
+  m_ps_all.bind(1, (qint64)includeDeleted);
 
   while(m_ps_all.step(__FUNCTION__)) {
     ImageRef *ir = new ImageRef();
@@ -550,6 +553,76 @@ ImageRef *ImageDao::findHash(const QString &hash)
   iref->m_selected = false;
 
   return iref;
+}
+/*
+ *
+ * QList<QObject *> ImageDao::addTagMultiple(const QList<QObject *> &irefs, const QString &tag)
+{
+  QList<QObject *> result;
+  transactionStart();
+
+  for(QObject *obj : irefs) {
+    auto iref = qobject_cast<ImageRef *>(obj);
+    if(addTag(iref, tag)) {
+      result.append(iref);
+    }
+  }
+
+  transactionEnd();
+  return result;
+}*/
+
+QList<QObject *> ImageDao::deleteImages(const QList<QObject *> &irefs)
+{
+  return deleteImages(irefs, true);
+}
+
+QList<QObject *> ImageDao::undeleteImages(const QList<QObject *> &irefs)
+{
+  return deleteImages(irefs, false);
+}
+
+void ImageDao::purgeDeletedImages()
+{
+  lockWrite();
+  SQLitePreparedStatement ps_del_store(m_conn, "DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)");
+  SQLitePreparedStatement ps_del_tags(m_conn, "DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)");
+  SQLitePreparedStatement ps_del_images(m_conn, "DELETE FROM image WHERE deleted = 1");
+  transactionStart();
+  ps_del_store.exec();
+  ps_del_tags.exec();
+  ps_del_images.exec();
+  transactionEnd();
+  unlockWrite();
+}
+
+QList<QObject *> ImageDao::deleteImages(const QList<QObject *> &irefs, bool deletedValue)
+{
+  SQLitePreparedStatement ps(m_conn, "UPDATE image SET deleted = ?1 WHERE id = ?2");
+
+  QList<QObject *> result;
+
+  transactionStart();
+
+  for(QObject *ptr : irefs) {
+    auto iref = qobject_cast<ImageRef *>(ptr);
+
+    if(iref->m_deleted == deletedValue)
+      continue;
+
+    iref->m_deleted = deletedValue;
+
+    ps.bind(1, (qint64)deletedValue);
+    ps.bind(2, iref->m_fileId);
+    ps.exec(__FUNCTION__);
+
+    emit iref->deletedChanged();
+    result.append(iref);
+  }
+
+  transactionEnd();
+
+  return result;
 }
 
 

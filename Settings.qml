@@ -107,6 +107,19 @@ Popup {
             onMoved: duplicateSearchDistance = value
           }
         }
+
+        Switch {
+          text: "Show images marked for removal"
+          checked: showHiddenImages
+          onClicked: showHiddenImages = checked
+        }
+
+        Button {
+          text: "Delete images marked for removal"
+          onClicked: {
+            ImageDao.purgeDeletedImages()
+          }
+        }
       }
 
       ColumnLayout {
@@ -178,6 +191,8 @@ Popup {
               "<li>F: Enlarge focused image</li>" +
               "<li>A: Add (new) tag to selection</li>" +
               "<li>R: Export selection</li>" +
+              "<li>Delete: Mark selection for removal</li>" +
+              "<li>Insert: Keep selection</li>" +
               "</ul>"
         }
       }

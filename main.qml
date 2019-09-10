@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.10.0"
+  title: "Thumper 1.11.0"
 
   FileUtils {
     id: fileUtils
@@ -28,6 +28,7 @@ ApplicationWindow {
     'renderPadToFit',
     'renderFilenameToClipboard',
     'duplicateSearchDistance',
+    'showHiddenImages',
   ]
 
   function loadSettings() {
@@ -75,13 +76,14 @@ ApplicationWindow {
   property bool renderFilenameToClipboard: false
   property bool gridShowImageIds: false
   property int duplicateSearchDistance: 4
+  property bool showHiddenImages: false
 
   property var viewIdToIndexMap: ({})
   ListModel {
     id: viewModel
   }
   property var viewModelSimpleList: []
-  property var allSimpleList: ImageDao.all()
+  property var allSimpleList: ImageDao.all(showHiddenImages)
 
   function imageRefById(fileId) {
     return viewModelSimpleList[viewIdToIndexMap[fileId]]
@@ -155,7 +157,7 @@ ApplicationWindow {
 
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
-    if(record) {
+    if(record && actionList.length > 0) {
       actionHistory.push(actionRemoveTag.bind(null, actionList, tag));
     }
   }
@@ -172,8 +174,36 @@ ApplicationWindow {
 
     console.log("Removed tag", tag, "from", actionList.length, "image(s)")
 
-    if(record) {
+    if(record && actionList.length > 0) {
       actionHistory.push(actionAddTag.bind(null, actionList, tag));
+    }
+  }
+
+  function actionDelete(refList, record = true) {
+    var actionList = []
+
+    ImageDao.lockWrite();
+    actionList = ImageDao.deleteImages(refList);
+    ImageDao.unlockWrite();
+
+    console.log("Deleted", actionList.length, "image(s)")
+
+    if(record && actionList.length > 0) {
+      actionHistory.push(actionUndelete.bind(null, actionList));
+    }
+  }
+
+  function actionUndelete(refList, record = true) {
+    var actionList = []
+
+    ImageDao.lockWrite();
+    actionList = ImageDao.undeleteImages(refList);
+    ImageDao.unlockWrite();
+
+    console.log("Undeleted", actionList.length, "image(s)")
+
+    if(record && actionList.length > 0) {
+      actionHistory.push(actionDelete.bind(null, actionList));
     }
   }
 
@@ -400,6 +430,12 @@ ApplicationWindow {
       } else if(event.key === Qt.Key_R) {
         renderImages()
         event.accepted = true
+      } else if(event.key === Qt.Key_Delete) {
+        actionDelete(effectiveSelectionModel)
+        event.accepted = true
+      } else if(event.key === Qt.Key_Insert) {
+        actionUndelete(effectiveSelectionModel)
+        event.accepted = true
       }
     }
 
@@ -495,12 +531,25 @@ ApplicationWindow {
           acceptedModifiers: Qt.ControlModifier
           onTapped: {
             list.forceActiveFocus()
-            list.currentIndex = index
+            if(selectionModel.length == 0) {
+              viewModelSimpleList[list.currentIndex].selected = true
+            }
 
+            list.currentIndex = index
             delegateItem.image.selected = !delegateItem.image.selected
             rebuildSelectionModel()
           }
         }
+      }
+
+      Rectangle {
+        x: 10
+        y: 10
+        visible: delegateItem.image.deleted
+        radius: 5
+        width: 10
+        height: 10
+        color: 'red'
       }
 
       Rectangle {
@@ -690,9 +739,11 @@ ApplicationWindow {
   Shortcut {
     sequence: "Ctrl+Z"
     onActivated: {
-      console.log("Undo/redo the last action")
-      var func = actionHistory.pop()
-      func(true)
+      if(actionHistory.length) {
+        console.log("Undo/redo the last action")
+        var func = actionHistory.pop()
+        func(true)
+      }
     }
   }
 

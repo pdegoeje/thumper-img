@@ -166,11 +166,17 @@ public:
   Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);
-  Q_INVOKABLE QList<QObject *> all();
+  Q_INVOKABLE QList<QObject *> all(bool includeDeleted);
   Q_INVOKABLE QStringList tagsById(qint64 id);
   void addTag(qint64 fileId, const QString &tag);
   void removeTag(qint64 fileId, const QString &tag);
   Q_INVOKABLE ImageRef *findHash(const QString &hash);
+  Q_INVOKABLE QList<QObject *> deleteImages(const QList<QObject *> &irefs);
+  Q_INVOKABLE QList<QObject *> undeleteImages(const QList<QObject *> &irefs);
+
+  Q_INVOKABLE void purgeDeletedImages();
+
+  QList<QObject *> deleteImages(const QList<QObject *> &irefs, bool doit);
 
   void imageDataAcquire(ImageDataContext &idc, qint64 id);
   void imageDataRelease(ImageDataContext &idc);
