@@ -114,6 +114,23 @@ ImageDao::ImageDao(QObject *parent) :
     metaPut(QStringLiteral("version"), version = 3);
   }
 
+  if(version == 3) {
+    qInfo("Upgrading database format from 3 to 4");
+
+    CHECK_EXEC("BEGIN TRANSACTION");
+
+    CHECK_EXEC("CREATE TABLE new_store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, image BLOB)");
+    CHECK_EXEC("CREATE TABLE image (id INTEGER PRIMARY KEY, date INTEGER, width INTEGER, height INTEGER, phash INTEGER, origin_url TEXT)");
+    CHECK_EXEC("INSERT INTO new_store SELECT id, hash, image FROM store");
+    CHECK_EXEC("INSERT INTO image SELECT id, date, width, height, phash, origin_url FROM store");
+    CHECK_EXEC("DROP TABLE store");
+    CHECK_EXEC("ALTER TABLE new_store RENAME TO store");
+
+    metaPut(QStringLiteral("version"), version = 4);
+
+    CHECK_EXEC("END TRANSACTION");
+  }
+
   createTemporaryTable("search", {});
 
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
@@ -281,7 +298,9 @@ static void findMatchesLinear(const std::vector<uint64_t> &hashes, std::set<uint
   }
 }
 
+// Each hash belongs to at most one cluster.
 using HashToCluster = std::unordered_map<uint64_t, int>;
+// Each cluster consists of a number of (unique) hashes.
 using ClusterToHashList = std::unordered_map<int, std::vector<uint64_t>>;
 
 static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &hashToCluster, ClusterToHashList &clusters, int &nextClusterId, int maxd) {
@@ -469,9 +488,9 @@ QList<QObject *> ImageDao::all()
   QList<QObject *> result;
 
   SQLitePreparedStatement m_ps_all(m_conn,
-    "SELECT store.id, group_concat(tag, ' '), width, height, phash "
-    "FROM store LEFT JOIN tag ON (tag.id = store.id) "
-    "GROUP BY store.id "
+    "SELECT image.id, group_concat(tag, ' '), width, height, phash "
+    "FROM image LEFT JOIN tag ON (tag.id = image.id) "
+    "GROUP BY image.id "
     "ORDER BY date ASC");
 
   while(m_ps_all.step(__FUNCTION__)) {
@@ -780,8 +799,8 @@ public:
 
     conn->exec("BEGIN TRANSACTION", __FUNCTION__);
     {
-      SQLitePreparedStatement ps_update(conn, "UPDATE store SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
-      SQLitePreparedStatement ps(conn, "SELECT id FROM store ORDER BY id");
+      SQLitePreparedStatement ps_update(conn, "UPDATE image SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
+      SQLitePreparedStatement ps(conn, "SELECT id FROM image ORDER BY id");
       qreal progress = 0.0;
       while(ps.step(__FUNCTION__)) {
         qint64 id = ps.resultInteger(0);

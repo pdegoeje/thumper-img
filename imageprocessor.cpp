@@ -178,8 +178,10 @@ void ImageDatabaseWriter::drainQueue()
 
   SQLiteConnectionPool *pool = dao->connPool();
   SQLiteConnection *conn = pool->open();
-  SQLitePreparedStatement ps;
-  ps.init(conn->m_db, "INSERT OR IGNORE INTO store (hash, date, image) VALUES (?1, datetime(), ?2)");
+
+  SQLitePreparedStatement ps(conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
+  SQLitePreparedStatement ps_id_by_hash(conn, "SELECT id FROM store WHERE hash = ?1");
+  SQLitePreparedStatement ps_image(conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
 
   dao->lockWrite();
   conn->exec("BEGIN TRANSACTION", __FUNCTION__);
@@ -189,8 +191,18 @@ void ImageDatabaseWriter::drainQueue()
     id.hash = hashBytes.toHex();
     ps.bind(1, id.hash);
     ps.bind(2, id.data);
-    ps.step(__FUNCTION__);
-    ps.reset();
+    ps.exec(__FUNCTION__);
+
+    if(sqlite3_changes(conn->m_db) == 0) {
+      qWarning("Duplicate image not inserted");
+      continue;
+    }
+
+    qint64 last_id = sqlite3_last_insert_rowid(conn->m_db);
+    qInfo("Inserted image with ID %lld", last_id);
+
+    ps_image.bind(1, last_id);
+    ps_image.exec(__FUNCTION__);
   }
 
   ps.destroy();
