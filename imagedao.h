@@ -86,9 +86,11 @@ class ImageRef : public QObject {
   Q_PROPERTY(bool selected MEMBER m_selected NOTIFY selectedChanged)
   Q_PROPERTY(QStringList tags READ tags NOTIFY tagsChanged)
   Q_PROPERTY(QSize size READ size CONSTANT)
+  Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
 
   qint64 m_fileId;
   bool m_selected;
+  bool m_deleted;
   QSet<QString> m_tags;
   QSize m_size;
   qint64 m_phash;
@@ -98,6 +100,7 @@ public:
 signals:
   void selectedChanged();
   void tagsChanged();
+  void deletedChanged();
 
   friend class ImageDao;
 };

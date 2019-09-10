@@ -131,6 +131,13 @@ ImageDao::ImageDao(QObject *parent) :
     CHECK_EXEC("END TRANSACTION");
   }
 
+  if(version == 4) {
+    qInfo("Upgrading database format from 4 to 5");
+    CHECK_EXEC("ALTER TABLE image ADD COLUMN deleted INTEGER");
+
+    metaPut(QStringLiteral("version"), version = 5);
+  }
+
   createTemporaryTable("search", {});
 
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
@@ -488,7 +495,7 @@ QList<QObject *> ImageDao::all()
   QList<QObject *> result;
 
   SQLitePreparedStatement m_ps_all(m_conn,
-    "SELECT image.id, group_concat(tag, ' '), width, height, phash "
+    "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted "
     "FROM image LEFT JOIN tag ON (tag.id = image.id) "
     "GROUP BY image.id "
     "ORDER BY date ASC");
@@ -499,6 +506,7 @@ QList<QObject *> ImageDao::all()
     ir->m_tags = QSet<QString>::fromList(m_ps_all.resultString(1).split(' ', QString::SkipEmptyParts));
     ir->m_size = { (int)m_ps_all.resultInteger(2), (int)m_ps_all.resultInteger(3) };
     ir->m_phash = m_ps_all.resultInteger(4);
+    ir->m_deleted = m_ps_all.resultInteger(5);
     result.append(ir);
   }
 
