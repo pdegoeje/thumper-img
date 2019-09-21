@@ -134,8 +134,6 @@ public:
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);
   Q_INVOKABLE QList<QObject *> all(bool includeDeleted);
   Q_INVOKABLE QStringList tagsById(qint64 id);
-  void addTag(qint64 fileId, const QString &tag);
-  void removeTag(qint64 fileId, const QString &tag);
   Q_INVOKABLE ImageRef *findHash(const QString &hash);
 
   Q_INVOKABLE void purgeDeletedImages();

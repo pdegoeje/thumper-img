@@ -111,9 +111,6 @@ ImageDao::ImageDao(QObject *parent) :
     metaPut(QStringLiteral("version"), version = 5);
   }
 
-  m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
-
-  m_ps_removeTag.init(m_db, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
   m_ps_tagsById.init(m_db, "SELECT tag FROM tag WHERE id = ?1");
   m_ps_idByHash.init(m_db, "SELECT id FROM store WHERE hash = ?1");
 
@@ -122,6 +119,8 @@ ImageDao::ImageDao(QObject *parent) :
 error:
   return;
 }
+
+#undef EXEC
 
 ImageDao::~ImageDao()
 {
@@ -477,20 +476,17 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
   return result;
 }
 
-void ImageDao::addTag(qint64 id, const QString &tag)
+QStringList ImageDao::tagsById(qint64 id)
 {
-  m_ps_addTag.bind(1, id);
-  m_ps_addTag.bind(2, tag);
-  m_ps_addTag.step(__FUNCTION__);
-  m_ps_addTag.reset();
-}
+  QStringList tags;
 
-void ImageDao::removeTag(qint64 id, const QString &tag)
-{
-  m_ps_removeTag.bind(1, id);
-  m_ps_removeTag.bind(2, tag);
-  m_ps_removeTag.step(__FUNCTION__);
-  m_ps_removeTag.reset();
+  m_ps_tagsById.bind(1, id);
+  while(m_ps_tagsById.step()) {
+    tags.append(m_ps_tagsById.resultString(0));
+  }
+  m_ps_tagsById.reset();
+
+  return tags;
 }
 
 ImageRef *ImageDao::findHash(const QString &hash)
@@ -856,20 +852,6 @@ void ImageDao::fixImageMetaData(ImageProcessStatus *status)
 {
   QThreadPool::globalInstance()->start(new FixImageMetaDataTask(status));
 }
-
-QStringList ImageDao::tagsById(qint64 id)
-{
-  QStringList tags;
-
-  m_ps_tagsById.bind(1, id);
-  while(m_ps_tagsById.step()) {
-    tags.append(m_ps_tagsById.resultString(0));
-  }
-  m_ps_tagsById.reset();
-
-  return tags;
-}
-
 
 void ImageDao::imageDataAcquire(ImageDao::ImageDataContext &idc, qint64 id)
 {
