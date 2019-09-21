@@ -551,16 +551,6 @@ ImageRef *ImageDao::findHash(const QString &hash)
   return iref;
 }
 
-QList<QObject *> ImageDao::deleteImages(const QList<QObject *> &irefs)
-{
-  return deleteImages(irefs, true);
-}
-
-QList<QObject *> ImageDao::undeleteImages(const QList<QObject *> &irefs)
-{
-  return deleteImages(irefs, false);
-}
-
 void ImageDao::purgeDeletedImages()
 {
   lockWrite();
@@ -576,7 +566,7 @@ void ImageDao::purgeDeletedImages()
   unlockWrite();
 }
 
-QList<QObject *> ImageDao::deleteImages(const QList<QObject *> &irefs, bool deletedValue)
+QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
 {
   QList<QObject *> result;
 

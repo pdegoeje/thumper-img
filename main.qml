@@ -188,7 +188,7 @@ ApplicationWindow {
     var actionList = []
 
     ImageDao.lockWrite();
-    actionList = ImageDao.deleteImages(refList);
+    actionList = ImageDao.updateDeleted(refList, true);
     ImageDao.unlockWrite();
 
     console.log("Deleted", actionList.length, "image(s)")
@@ -202,7 +202,7 @@ ApplicationWindow {
     var actionList = []
 
     ImageDao.lockWrite();
-    actionList = ImageDao.undeleteImages(refList);
+    actionList = ImageDao.updateDeleted(refList, false);
     ImageDao.unlockWrite();
 
     console.log("Undeleted", actionList.length, "image(s)")

@@ -201,12 +201,9 @@ public:
   void addTag(qint64 fileId, const QString &tag);
   void removeTag(qint64 fileId, const QString &tag);
   Q_INVOKABLE ImageRef *findHash(const QString &hash);
-  Q_INVOKABLE QList<QObject *> deleteImages(const QList<QObject *> &irefs);
-  Q_INVOKABLE QList<QObject *> undeleteImages(const QList<QObject *> &irefs);
 
   Q_INVOKABLE void purgeDeletedImages();
-
-  QList<QObject *> deleteImages(const QList<QObject *> &irefs, bool doit);
+  Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
 
   void imageDataAcquire(ImageDataContext &idc, qint64 id);
   void imageDataRelease(ImageDataContext &idc);
