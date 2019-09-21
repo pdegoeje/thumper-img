@@ -41,35 +41,6 @@ ImageDao *ImageDao::m_instance;
   } \
 }
 
-#define CHECK_STEP(stmt) \
-{ \
-  if(sqlite3_step(stmt) != SQLITE_DONE) { \
-    qWarning("%s:%d SQLite: %s", __FUNCTION__, __LINE__, sqlite3_errmsg(m_db)); \
-    goto error; \
-  } \
-}
-
-#define STEP_LOOP_BEGIN(stmt) \
-{ \
-  int rval; \
-  while((rval = sqlite3_step(stmt)) == SQLITE_ROW) {
-
-#define STEP_LOOP_END \
-  } \
-  if(rval != SQLITE_DONE) { \
-    qWarning("%s:%d SQLite: %s", __FUNCTION__, __LINE__, sqlite3_errmsg(m_db)); \
-    goto error; \
-  } \
-}
-
-#define STEP_SINGLE(stmt) \
-{ \
-  if(sqlite3_step(stmt) != SQLITE_ROW) { \
-    qWarning("%s:%d SQLite: %s", __FUNCTION__, __LINE__, sqlite3_errmsg(m_db)); \
-    goto error; \
-  } \
-}
-
 ImageDao::ImageDao(QObject *parent) :
   QObject(parent),
   m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
@@ -151,8 +122,6 @@ ImageDao::ImageDao(QObject *parent) :
 
     metaPut(QStringLiteral("version"), version = 5);
   }
-
-  createTemporaryTable("search", {});
 
   m_ps_addTag.init(m_db, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
 
@@ -978,23 +947,6 @@ ImageDao *ImageDao::instance()
   }
 
   return m_instance;
-}
-
-void ImageDao::createTemporaryTable(const QString &tableName, const QStringList &items)
-{
-  sqlite3_stmt *stmt = nullptr;
-  CHECK_EXEC(qUtf8Printable(QStringLiteral("CREATE TEMPORARY TABLE IF NOT EXISTS %1 (item PRIMARY KEY);"
-                                           "DELETE FROM %1").arg(tableName)));
-
-  CHECK(sqlite3_prepare_v2(m_db, qUtf8Printable(QStringLiteral("INSERT INTO %1 (item) VALUES (?1)").arg(tableName)), -1, &stmt, nullptr));
-  for(const QString &id : items) {
-    CHECK(sqlite3_bind_text(stmt, 1, qUtf8Printable(id), -1, SQLITE_TRANSIENT));
-    CHECK_STEP(stmt);
-    CHECK(sqlite3_reset(stmt));
-  }
-
-error:
-  sqlite3_finalize(stmt);
 }
 
 QStringList ImageRef::tags()

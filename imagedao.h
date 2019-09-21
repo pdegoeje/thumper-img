@@ -160,8 +160,6 @@ public:
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 
   static ImageDao *instance();
-private:
-  void createTemporaryTable(const QString &tableName, const QStringList &items);
 signals:
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
