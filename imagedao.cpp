@@ -349,16 +349,13 @@ ImageRef *ImageDao::findHash(const QString &hash)
 void ImageDao::purgeDeletedImages()
 {
   lockWrite();
-  SQLitePreparedStatement ps_del_store(m_conn, "DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)");
-  SQLitePreparedStatement ps_del_tags(m_conn, "DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)");
-  SQLitePreparedStatement ps_del_images(m_conn, "DELETE FROM image WHERE deleted = 1");
-  transactionStart();
-  ps_del_store.exec();
-  ps_del_tags.exec();
-  ps_del_images.exec();
-  qInfo("Purged %d images from the database", sqlite3_changes(m_db));
-  transactionEnd();
+  m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
+  m_conn->exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
+  m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
+  m_conn->exec("DELETE FROM image WHERE deleted = 1", __FUNCTION__);
+  m_conn->exec("END TRANSACTION", __FUNCTION__);
   unlockWrite();
+  qInfo("Purged %d images from the database", sqlite3_changes(m_db));
 }
 
 QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
@@ -433,16 +430,6 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     QClipboard *cb = QGuiApplication::clipboard();
     cb->setText(clipBoardData.join('\n'));
   }
-}
-
-void ImageDao::transactionStart()
-{
-  m_ps_transStart.exec();
-}
-
-void ImageDao::transactionEnd()
-{
-  m_ps_transEnd.exec();
 }
 
 void ImageDao::lockWrite()

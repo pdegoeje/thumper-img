@@ -107,9 +107,6 @@ public:
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
 
-  Q_INVOKABLE void transactionStart();
-  Q_INVOKABLE void transactionEnd();
-
   Q_INVOKABLE void lockWrite();
   Q_INVOKABLE void unlockWrite();
 

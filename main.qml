@@ -158,8 +158,6 @@ ApplicationWindow {
     rebuildTagModels()
     rebuildAllTagModel()
 
-
-
     console.log("Added tag", tag, "to", actionList.length, "image(s)")
 
     if(record && actionList.length > 0) {
