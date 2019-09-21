@@ -227,6 +227,10 @@ QList<QObject *> ImageDao::removeTag(const QList<QObject *> &irefs, const QStrin
   return result;
 }
 
+QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int maxDuplicates)
+{
+  return ::findAllDuplicates(irefs, maxDuplicates);
+}
 
 
 QString ImageDao::hashById(qint64 id)

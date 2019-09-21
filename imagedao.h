@@ -23,22 +23,20 @@ class ImageRef : public QObject {
   Q_PROPERTY(QSize size READ size CONSTANT)
   Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
 
+public:
   qint64 m_fileId;
   bool m_selected;
   bool m_deleted;
   QSet<QString> m_tags;
   QSize m_size;
   qint64 m_phash;
-public:
+
   QStringList tags();
   QSize size() const { return m_size; }
 signals:
   void selectedChanged();
   void tagsChanged();
   void deletedChanged();
-
-  friend class ImageDao;
-  friend class ImageDaoDeferredWriter;
 };
 
 

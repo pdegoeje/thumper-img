@@ -5,6 +5,8 @@
 #include <QRunnable>
 #include <QImage>
 
+QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDistance);
+
 class ImageProcessStatus : public QObject {
   Q_OBJECT
 public:

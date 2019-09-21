@@ -339,8 +339,7 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
   }
 }
 
-
-QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int maxDistance)
+QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDistance)
 {
   std::vector<uint64_t> hashList;
   std::unordered_map<uint64_t, std::vector<ImageRef *>> irefLookup;
