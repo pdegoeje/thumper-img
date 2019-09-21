@@ -14,30 +14,21 @@
 ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 {
   ImageFetcher *fetcher = new ImageFetcher();
-  ImageDatabaseWriter *writer = new ImageDatabaseWriter();
-
   fetcher->moveToThread(&m_downloadThread);
-  writer->moveToThread(&m_writeThread);
 
   connect(&m_downloadThread, &QThread::finished, fetcher, &QObject::deleteLater);
-  connect(&m_writeThread, &QThread::finished, writer, &QObject::deleteLater);
 
   connect(this, &ImageProcessor::startDownload, fetcher, &ImageFetcher::startDownload);
-  connect(fetcher, &ImageFetcher::downloadComplete, writer, &ImageDatabaseWriter::startWrite);
-  connect(writer, &ImageDatabaseWriter::writeComplete, this, &ImageProcessor::imageReady);
-
+  connect(fetcher, &ImageFetcher::downloadComplete, ImageDao::instance(), &ImageDao::deferredWriteImage);
+  connect(ImageDao::instance(), &ImageDao::writeComplete, this, &ImageProcessor::imageReady);
 
   m_downloadThread.start();
-  m_writeThread.start();
 }
 
 ImageProcessor::~ImageProcessor()
 {
   m_downloadThread.quit();
-  m_writeThread.quit();
-
   m_downloadThread.wait();
-  m_writeThread.wait();
 
   qInfo(__FUNCTION__);
 }
@@ -117,64 +108,4 @@ void ImageFetcher::downloadFinished(QNetworkReply *reply)
   }
 
   reply->deleteLater();
-}
-
-ImageDatabaseWriter::ImageDatabaseWriter(QObject *parent) : QObject(parent), timer(this)
-{
-  timer.setInterval(0);
-  timer.setSingleShot(true);
-
-  connect(&timer, &QTimer::timeout, this, &ImageDatabaseWriter::drainQueue);
-}
-
-void ImageDatabaseWriter::startWrite(const QUrl &url, const QByteArray &data)
-{
-  writeQueue.append({ url, data, {}});
-  if(!timer.isActive())
-    timer.start();
-}
-
-void ImageDatabaseWriter::drainQueue()
-{
-  ImageDao *dao = ImageDao::instance();
-
-  SQLiteConnectionPool *pool = dao->connPool();
-  SQLiteConnection *conn = pool->open();
-
-  SQLitePreparedStatement ps(conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
-  SQLitePreparedStatement ps_id_by_hash(conn, "SELECT id FROM store WHERE hash = ?1");
-  SQLitePreparedStatement ps_image(conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
-
-  dao->lockWrite();
-  conn->exec("BEGIN TRANSACTION", __FUNCTION__);
-
-  for(ImageData &id : writeQueue) {
-    QByteArray hashBytes = QCryptographicHash::hash(id.data, QCryptographicHash::Sha256);
-    id.hash = hashBytes.toHex();
-    ps.bind(1, id.hash);
-    ps.bind(2, id.data);
-    ps.exec(__FUNCTION__);
-
-    if(sqlite3_changes(conn->m_db) == 0) {
-      qWarning("Duplicate image not inserted");
-      continue;
-    }
-
-    qint64 last_id = sqlite3_last_insert_rowid(conn->m_db);
-    qInfo("Inserted image with ID %lld", last_id);
-
-    ps_image.bind(1, last_id);
-    ps_image.exec(__FUNCTION__);
-  }
-
-  ps.destroy();
-  conn->exec("END TRANSACTION", __FUNCTION__);
-  pool->close(conn);
-  dao->unlockWrite();
-
-  for(ImageData &id : writeQueue) {
-    emit writeComplete(id.url, id.hash);
-  }
-
-  writeQueue.clear();
 }

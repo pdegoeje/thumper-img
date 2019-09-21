@@ -143,6 +143,10 @@ public slots:
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
   void sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
+
+  void writeImage(const QUrl &url, const QByteArray &data);
+signals:
+  void writeComplete(const QUrl &url, const QString &hash);
 };
 
 
@@ -231,6 +235,9 @@ signals:
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredSync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
+
+  void deferredWriteImage(const QUrl &url, const QByteArray &data);
+  void writeComplete(const QUrl &url, const QString &hash);
 public slots:
 };
 

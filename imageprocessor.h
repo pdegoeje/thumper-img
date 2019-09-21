@@ -8,12 +8,6 @@
 #include <QThread>
 #include <QTimer>
 
-struct ImageData {
-  QUrl url;
-  QByteArray data;
-  QString hash;
-};
-
 class ImageFetcher : public QObject {
   Q_OBJECT
 
@@ -30,27 +24,11 @@ signals:
   void downloadComplete(const QUrl &url, const QByteArray &data);
 };
 
-class ImageDatabaseWriter : public QObject {
-  Q_OBJECT
-
-  QQueue<ImageData> writeQueue;
-  QTimer timer;
-public:
-  ImageDatabaseWriter(QObject *parent = nullptr);
-public slots:
-  void startWrite(const QUrl &url, const QByteArray &data);
-private slots:
-  void drainQueue();
-signals:
-  void writeComplete(const QUrl &url, const QString &hash);
-};
-
 class ImageProcessor : public QObject
 {
   Q_OBJECT
 
   QThread m_downloadThread;
-  QThread m_writeThread;
 public:
   explicit ImageProcessor(QObject *parent = nullptr);
   virtual ~ImageProcessor();

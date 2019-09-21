@@ -18,6 +18,7 @@
 #include <QGuiApplication>
 #include <QDataStream>
 #include <QThreadPool>
+#include <QCryptographicHash>
 
 ImageDao *ImageDao::m_instance;
 
@@ -80,6 +81,10 @@ ImageDao::ImageDao(QObject *parent) :
   connect(this, &ImageDao::deferredAddTag, idfw, &ImageDaoDeferredWriter::addTag);
   connect(this, &ImageDao::deferredRemoveTag, idfw, &ImageDaoDeferredWriter::removeTag);
   connect(this, &ImageDao::deferredUpdateDeleted, idfw, &ImageDaoDeferredWriter::updateDeleted);
+  connect(this, &ImageDao::deferredWriteImage, idfw, &ImageDaoDeferredWriter::writeImage);
+  connect(idfw, &ImageDaoDeferredWriter::writeComplete, this, &ImageDao::writeComplete);
+
+  connect(&m_writeThread, &QThread::finished, idfw, &QObject::deleteLater);
   idfw->moveToThread(&m_writeThread);
   m_writeThread.start();
 
@@ -1179,4 +1184,34 @@ void ImageDaoDeferredWriter::updateDeleted(const QList<QObject *> &irefs, bool d
 void ImageDaoDeferredWriter::sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData) {
   endWrite();
   emit syncPoint->sync(userData);
+}
+
+void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
+{
+  startWrite();
+
+  SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
+  SQLitePreparedStatement ps_id_by_hash(m_conn, "SELECT id FROM store WHERE hash = ?1");
+  SQLitePreparedStatement ps_image(m_conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
+
+  QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
+  QString hash = hashBytes.toHex();
+  ps.bind(1, hash);
+  ps.bind(2, data);
+  ps.exec(__FUNCTION__);
+
+  if(sqlite3_changes(m_conn->m_db) == 0) {
+    qWarning("Duplicate image not inserted");
+    return;
+  }
+
+  qint64 last_id = sqlite3_last_insert_rowid(m_conn->m_db);
+  qInfo("Inserted image with ID %lld", last_id);
+
+  ps_image.bind(1, last_id);
+  ps_image.exec(__FUNCTION__);
+
+  endWrite();
+
+  emit writeComplete(url, hash);
 }
