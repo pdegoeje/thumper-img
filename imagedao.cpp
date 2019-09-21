@@ -110,11 +110,7 @@ ImageDao::ImageDao(QObject *parent) :
     metaPut(QStringLiteral("version"), version = 5);
   }
 
-  m_ps_tagsById.init(m_conn, "SELECT tag FROM tag WHERE id = ?1");
-  m_ps_idByHash.init(m_conn, "SELECT id FROM store WHERE hash = ?1");
 
-  m_ps_transStart.init(m_conn, "BEGIN TRANSACTION");
-  m_ps_transEnd.init(m_conn, "END TRANSACTION");
 error:
   return;
 }
@@ -309,6 +305,8 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
 
 QStringList ImageDao::tagsById(qint64 id)
 {
+  SQLitePreparedStatement m_ps_tagsById(m_conn, "SELECT tag FROM tag WHERE id = ?1");
+
   QStringList tags;
 
   m_ps_tagsById.bind(1, id);
@@ -322,6 +320,8 @@ QStringList ImageDao::tagsById(qint64 id)
 
 ImageRef *ImageDao::findHash(const QString &hash)
 {
+  SQLitePreparedStatement m_ps_idByHash(m_conn, "SELECT id FROM store WHERE hash = ?1");
+
   m_ps_idByHash.bind(1, hash);
   if(!m_ps_idByHash.step(__FUNCTION__)) {
     m_ps_idByHash.reset();

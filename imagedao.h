@@ -58,11 +58,6 @@ class ImageDao : public QObject
   SQLiteConnectionPool m_connPool;
   SQLiteConnection *m_conn;
 
-  SQLitePreparedStatement m_ps_tagsById;
-  SQLitePreparedStatement m_ps_idByHash;
-  SQLitePreparedStatement m_ps_transStart;
-  SQLitePreparedStatement m_ps_transEnd;
-
   QThread m_writeThread;
 public:
   struct ImageDataContext {
