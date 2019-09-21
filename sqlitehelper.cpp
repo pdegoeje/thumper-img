@@ -81,7 +81,7 @@ SQLitePreparedStatement::SQLitePreparedStatement(SQLiteConnection *conn, const c
 }
 
 
-SQLiteConnection::SQLiteConnection(const QString &dbname, int flags)
+SQLiteConnection::SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool) : m_pool(pool)
 {
   if(sqlite3_open_v2(qUtf8Printable(dbname), &m_db, flags, nullptr) != SQLITE_OK) {
     qWarning("Couldn't open SQLite database: %s", sqlite3_errmsg(m_db));
@@ -104,4 +104,8 @@ bool SQLiteConnection::exec(const char *sql, const char *debug_str)
   }
 
   return true;
+}
+
+QMutex *SQLiteConnection::writeLock() {
+  return m_pool->writeLock();
 }

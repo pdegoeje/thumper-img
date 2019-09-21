@@ -152,9 +152,7 @@ ApplicationWindow {
   function actionAddTag(refList, tag, record = true) {
     var actionList = []
 
-    ImageDao.lockWrite();
     actionList = ImageDao.addTag(refList, tag)
-    ImageDao.unlockWrite();
     rebuildTagModels()
     rebuildAllTagModel()
 
@@ -169,9 +167,7 @@ ApplicationWindow {
   function actionRemoveTag(refList, tag, record = true) {
     var actionList = []
 
-    ImageDao.lockWrite();
     actionList = ImageDao.removeTag(refList, tag);
-    ImageDao.unlockWrite();
     rebuildTagModels()
     rebuildAllTagModel()
 
@@ -185,10 +181,7 @@ ApplicationWindow {
   function actionDelete(refList, record = true) {
     var actionList = []
 
-    ImageDao.lockWrite();
     actionList = ImageDao.updateDeleted(refList, true);
-    ImageDao.unlockWrite();
-
     console.log("Deleted", actionList.length, "image(s)")
 
     if(record && actionList.length > 0) {
@@ -199,10 +192,7 @@ ApplicationWindow {
   function actionUndelete(refList, record = true) {
     var actionList = []
 
-    ImageDao.lockWrite();
     actionList = ImageDao.updateDeleted(refList, false);
-    ImageDao.unlockWrite();
-
     console.log("Undeleted", actionList.length, "image(s)")
 
     if(record && actionList.length > 0) {

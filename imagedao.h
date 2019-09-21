@@ -64,7 +64,6 @@ class ImageDao : public QObject
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
 
-  QMutex m_writeLock;
   QThread m_writeThread;
 public:
   struct ImageDataContext {
@@ -106,10 +105,6 @@ public:
   void imageDataRelease(ImageDataContext &idc);
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
-
-  Q_INVOKABLE void lockWrite();
-  Q_INVOKABLE void unlockWrite();
-
   Q_INVOKABLE void fixImageMetaData(ImageProcessStatus *status);
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);

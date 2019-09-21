@@ -32,13 +32,17 @@ struct SQLitePreparedStatement {
   ~SQLitePreparedStatement() { destroy(); }
 };
 
+struct SQLiteConnectionPool;
+
 struct SQLiteConnection {
   sqlite3 *m_db;
+  SQLiteConnectionPool *m_pool;
 
-  SQLiteConnection(const QString &dbname, int flags);
+  SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool);
   ~SQLiteConnection();
 
   bool exec(const char *sql, const char *debug_str = nullptr);
+  QMutex *writeLock();
 };
 
 struct SQLiteConnectionPool {
@@ -47,6 +51,7 @@ struct SQLiteConnectionPool {
   QString m_dbname;
   int m_flags;
   QMutex m_mutex;
+  QMutex m_writeLock;
 
   SQLiteConnectionPool(const QString &dbname, int flags) {
     //m_maxPool = maxPool;
@@ -60,10 +65,14 @@ struct SQLiteConnectionPool {
     }
   }
 
+  QMutex *writeLock() {
+    return &m_writeLock;
+  };
+
   SQLiteConnection *open() {
     QMutexLocker lock(&m_mutex);
     if(m_pool.isEmpty()) {
-      return new SQLiteConnection(m_dbname, m_flags);
+      return new SQLiteConnection(m_dbname, m_flags, this);
     } else {
       auto result = m_pool.last();
       m_pool.removeLast();

@@ -140,8 +140,7 @@ bool ImageDao::tableExists(const QString &table)
 
 void ImageDao::metaPut(const QString &key, const QVariant &val)
 {
-  lockWrite();
-
+  QMutexLocker writeLock(m_conn->writeLock());
   SQLitePreparedStatement ps(m_conn, "INSERT OR REPLACE INTO meta (key, type, value) VALUES (?1, ?2, ?3)");
   ps.bind(1, key);
 
@@ -157,8 +156,6 @@ void ImageDao::metaPut(const QString &key, const QVariant &val)
     ps.bind(3, data);
   }
   ps.step(__FUNCTION__);
-
-  unlockWrite();
 }
 
 QVariant ImageDao::metaGet(const QString &key)
@@ -348,13 +345,12 @@ ImageRef *ImageDao::findHash(const QString &hash)
 
 void ImageDao::purgeDeletedImages()
 {
-  lockWrite();
+  QMutexLocker writeLock(m_conn->writeLock());
   m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
   m_conn->exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
   m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
   m_conn->exec("DELETE FROM image WHERE deleted = 1", __FUNCTION__);
   m_conn->exec("END TRANSACTION", __FUNCTION__);
-  unlockWrite();
   qInfo("Purged %d images from the database", sqlite3_changes(m_db));
 }
 
@@ -431,17 +427,6 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     cb->setText(clipBoardData.join('\n'));
   }
 }
-
-void ImageDao::lockWrite()
-{
-  m_writeLock.lock();
-}
-
-void ImageDao::unlockWrite()
-{
-  m_writeLock.unlock();
-}
-
 
 void ImageDao::fixImageMetaData(ImageProcessStatus *status)
 {
@@ -521,21 +506,17 @@ QStringList ImageRef::tags()
 
 void ImageDaoDeferredWriter::startTransaction()
 {
-  qDebug() << __FUNCTION__;
-  SQLitePreparedStatement ps(m_conn, "BEGIN TRANSACTION");
-  ps.exec(__FUNCTION__);
+  m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
 }
 
 void ImageDaoDeferredWriter::endTransaction()
 {
-  qDebug() << __FUNCTION__;
-  SQLitePreparedStatement ps(m_conn, "END TRANSACTION");
-  ps.exec(__FUNCTION__);
+  m_conn->exec("END TRANSACTION", __FUNCTION__);
 }
 
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
-    ImageDao::instance()->lockWrite();
+    m_conn->writeLock()->lock();
     startTransaction();
     m_inTransaction = true;
     QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
@@ -551,7 +532,7 @@ void ImageDaoDeferredWriter::endWrite() {
   if(m_inTransaction) {
     endTransaction();
     m_inTransaction = false;
-    ImageDao::instance()->unlockWrite();
+    m_conn->writeLock()->unlock();
   }
 }
 
