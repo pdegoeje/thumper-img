@@ -23,22 +23,10 @@
 
 ImageDao *ImageDao::m_instance;
 
-#define CHECK(expression) \
+#define EXEC(sql) \
 { \
-  if((expression) != SQLITE_OK) { \
-    qWarning("%s:%d SQLite: %s", __FUNCTION__, __LINE__, sqlite3_errmsg(m_db)); \
+  if(!m_conn->exec(sql, __FUNCTION__)) \
     goto error; \
-  } \
-}
-
-#define CHECK_EXEC(sql) \
-{ \
-  char *error; \
-  if(sqlite3_exec(m_db, sql, nullptr, nullptr, &error) != SQLITE_OK) { \
-    qWarning("%s:%d SQLite: %s", __FUNCTION__, __LINE__, error); \
-    sqlite3_free(error); \
-    goto error; \
-  } \
 }
 
 ImageDao::ImageDao(QObject *parent) :
@@ -62,13 +50,13 @@ ImageDao::ImageDao(QObject *parent) :
 
   QVariant version;
 
-  CHECK_EXEC("PRAGMA journal_mode = WAL");
+  EXEC("PRAGMA journal_mode = WAL");
 
   bool createNewDatabase = !tableExists(QStringLiteral("store"));
 
   if(createNewDatabase) {
-    CHECK_EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
-    CHECK_EXEC("CREATE TABLE tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
+    EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
+    EXEC("CREATE TABLE tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
   }
 
   if(!tableExists("meta")) {
@@ -81,44 +69,44 @@ ImageDao::ImageDao(QObject *parent) :
 
   if(version == 0) {
     qInfo("Upgrading database format from 0 to 1");
-    CHECK_EXEC("CREATE TABLE meta (key TEXT PRIMARY KEY, type TEXT, value TEXT)");
+    EXEC("CREATE TABLE meta (key TEXT PRIMARY KEY, type TEXT, value TEXT)");
     metaPut(QStringLiteral("version"), version = 1);
   }
 
   if(version == 1) {
     qInfo("Upgrading database format from 1 to 2");
-    CHECK_EXEC("ALTER TABLE store ADD COLUMN width INTEGER");
-    CHECK_EXEC("ALTER TABLE store ADD COLUMN height INTEGER");
-    CHECK_EXEC("ALTER TABLE store ADD COLUMN origin_url TEXT");
+    EXEC("ALTER TABLE store ADD COLUMN width INTEGER");
+    EXEC("ALTER TABLE store ADD COLUMN height INTEGER");
+    EXEC("ALTER TABLE store ADD COLUMN origin_url TEXT");
     metaPut(QStringLiteral("version"), version = 2);
   }
 
   if(version == 2) {
     qInfo("Upgrading database format from 2 to 3");
-    CHECK_EXEC("ALTER TABLE store ADD COLUMN phash INTEGER");
+    EXEC("ALTER TABLE store ADD COLUMN phash INTEGER");
     metaPut(QStringLiteral("version"), version = 3);
   }
 
   if(version == 3) {
     qInfo("Upgrading database format from 3 to 4");
 
-    CHECK_EXEC("BEGIN TRANSACTION");
+    EXEC("BEGIN TRANSACTION");
 
-    CHECK_EXEC("CREATE TABLE new_store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, image BLOB)");
-    CHECK_EXEC("CREATE TABLE image (id INTEGER PRIMARY KEY, date INTEGER, width INTEGER, height INTEGER, phash INTEGER, origin_url TEXT)");
-    CHECK_EXEC("INSERT INTO new_store SELECT id, hash, image FROM store");
-    CHECK_EXEC("INSERT INTO image SELECT id, date, width, height, phash, origin_url FROM store");
-    CHECK_EXEC("DROP TABLE store");
-    CHECK_EXEC("ALTER TABLE new_store RENAME TO store");
+    EXEC("CREATE TABLE new_store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, image BLOB)");
+    EXEC("CREATE TABLE image (id INTEGER PRIMARY KEY, date INTEGER, width INTEGER, height INTEGER, phash INTEGER, origin_url TEXT)");
+    EXEC("INSERT INTO new_store SELECT id, hash, image FROM store");
+    EXEC("INSERT INTO image SELECT id, date, width, height, phash, origin_url FROM store");
+    EXEC("DROP TABLE store");
+    EXEC("ALTER TABLE new_store RENAME TO store");
 
     metaPut(QStringLiteral("version"), version = 4);
 
-    CHECK_EXEC("END TRANSACTION");
+    EXEC("END TRANSACTION");
   }
 
   if(version == 4) {
     qInfo("Upgrading database format from 4 to 5");
-    CHECK_EXEC("ALTER TABLE image ADD COLUMN deleted INTEGER");
+    EXEC("ALTER TABLE image ADD COLUMN deleted INTEGER");
 
     metaPut(QStringLiteral("version"), version = 5);
   }
