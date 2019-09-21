@@ -502,20 +502,10 @@ QStringList ImageRef::tags()
   return m_tags.toList();
 }
 
-void ImageDaoDeferredWriter::startTransaction()
-{
-  m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
-}
-
-void ImageDaoDeferredWriter::endTransaction()
-{
-  m_conn->exec("END TRANSACTION", __FUNCTION__);
-}
-
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
     m_conn->writeLock()->lock();
-    startTransaction();
+    m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
     m_inTransaction = true;
     QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
   }
@@ -533,7 +523,7 @@ ImageDaoDeferredWriter::~ImageDaoDeferredWriter()
 
 void ImageDaoDeferredWriter::endWrite() {
   if(m_inTransaction) {
-    endTransaction();
+    m_conn->exec("END TRANSACTION", __FUNCTION__);
     m_inTransaction = false;
     m_conn->writeLock()->unlock();
   }

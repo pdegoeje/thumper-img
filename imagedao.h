@@ -25,9 +25,6 @@ signals:
 class ImageDaoDeferredWriter : public QObject {
   Q_OBJECT
 
-  void startTransaction();
-  void endTransaction();
-
   void startWrite();
 
   SQLiteConnection *m_conn = nullptr;
