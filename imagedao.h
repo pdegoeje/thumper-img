@@ -37,7 +37,6 @@ public:
 private slots:
   void endWrite();
 public slots:
-  //void writeImage();
   void addTag(const QList<QObject *> &irefs, const QString &tag);
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
@@ -60,14 +59,11 @@ class ImageDao : public QObject
 
   sqlite3 *m_db = nullptr;
 
-  SQLitePreparedStatement m_ps_addTag;
-  SQLitePreparedStatement m_ps_removeTag;
   SQLitePreparedStatement m_ps_tagsById;
   SQLitePreparedStatement m_ps_idByHash;
   SQLitePreparedStatement m_ps_transStart;
   SQLitePreparedStatement m_ps_transEnd;
 
-  QElapsedTimer m_timer;
   QMutex m_writeLock;
   QThread m_writeThread;
 public:
@@ -116,9 +112,6 @@ public:
 
   Q_INVOKABLE void lockWrite();
   Q_INVOKABLE void unlockWrite();
-
-  Q_INVOKABLE void timerStart() { m_timer.start(); }
-  Q_INVOKABLE qint64 timerElapsed() { return m_timer.elapsed(); }
 
   Q_INVOKABLE void fixImageMetaData(ImageProcessStatus *status);
 
