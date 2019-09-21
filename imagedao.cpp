@@ -75,6 +75,13 @@ ImageDao::ImageDao(QObject *parent) :
   m_conn = m_connPool.open();
   m_db = m_conn->m_db;
 
+  auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
+  connect(this, &ImageDao::deferredSync, idfw, &ImageDaoDeferredWriter::sync);
+  connect(this, &ImageDao::deferredAddTag, idfw, &ImageDaoDeferredWriter::addTag);
+  connect(this, &ImageDao::deferredRemoveTag, idfw, &ImageDaoDeferredWriter::removeTag);
+  idfw->moveToThread(&m_writeThread);
+  m_writeThread.start();
+
   QVariant version;
 
   CHECK_EXEC("PRAGMA journal_mode = WAL");
@@ -154,6 +161,8 @@ error:
 
 ImageDao::~ImageDao()
 {
+  m_writeThread.quit();
+  m_writeThread.wait();
   m_connPool.close(m_conn);
   qInfo(__FUNCTION__);
 }
@@ -240,32 +249,40 @@ bool ImageDao::removeTag(ImageRef *iref, const QString &tag) {
 QList<QObject *> ImageDao::addTagMultiple(const QList<QObject *> &irefs, const QString &tag)
 {
   QList<QObject *> result;
-  transactionStart();
 
   for(QObject *obj : irefs) {
-    auto iref = qobject_cast<ImageRef *>(obj);
-    if(addTag(iref, tag)) {
-      result.append(iref);
+    if(auto iref = qobject_cast<ImageRef *>(obj)) {
+      if(!iref->m_tags.contains(tag)) {
+        iref->m_tags.insert(tag);
+        emit iref->tagsChanged();
+
+        result.append(iref);
+      }
     }
   }
 
-  transactionEnd();
+  emit deferredAddTag(result, tag);
+
   return result;
 }
 
 QList<QObject *> ImageDao::removeTagMultiple(const QList<QObject *> &irefs, const QString &tag)
 {
   QList<QObject *> result;
-  transactionStart();
 
   for(QObject *obj : irefs) {
-    auto iref = qobject_cast<ImageRef *>(obj);
-    if(removeTag(iref, tag)) {
-      result.append(iref);
+    if(auto iref = qobject_cast<ImageRef *>(obj)) {
+      if(iref->m_tags.contains(tag)) {
+        iref->m_tags.remove(tag);
+        emit iref->tagsChanged();
+
+        result.append(iref);
+      }
     }
   }
 
-  transactionEnd();
+  emit deferredRemoveTag(result, tag);
+
   return result;
 }
 
@@ -592,6 +609,7 @@ void ImageDao::purgeDeletedImages()
   ps_del_store.exec();
   ps_del_tags.exec();
   ps_del_images.exec();
+  qInfo("Purged %d images from the database", sqlite3_changes(m_db));
   transactionEnd();
   unlockWrite();
 }
@@ -1139,4 +1157,71 @@ bool SQLiteConnection::exec(const char *sql, const char *debug_str)
   }
 
   return true;
+}
+
+void ImageDaoDeferredWriter::startTransaction()
+{
+  qDebug() << __FUNCTION__;
+  SQLitePreparedStatement ps(m_conn, "BEGIN TRANSACTION");
+  ps.exec(__FUNCTION__);
+}
+
+void ImageDaoDeferredWriter::endTransaction()
+{
+  qDebug() << __FUNCTION__;
+  SQLitePreparedStatement ps(m_conn, "END TRANSACTION");
+  ps.exec(__FUNCTION__);
+}
+
+void ImageDaoDeferredWriter::startWrite() {
+  if(!m_inTransaction) {
+    ImageDao::instance()->lockWrite();
+    startTransaction();
+    m_inTransaction = true;
+    QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
+  }
+}
+
+ImageDaoDeferredWriter::ImageDaoDeferredWriter(SQLiteConnection *conn, QObject *parent) : m_conn(conn), QObject(parent)
+{
+
+}
+
+void ImageDaoDeferredWriter::endWrite() {
+  if(m_inTransaction) {
+    endTransaction();
+    m_inTransaction = false;
+    ImageDao::instance()->unlockWrite();
+  }
+}
+
+void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString &tag)
+{
+  startWrite();
+  SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
+  for(QObject *qobj : irefs) {
+    if(auto iref = qobject_cast<ImageRef *>(qobj)) {
+      ps.bind(1, iref->m_fileId);
+      ps.bind(2, tag);
+      ps.exec(__FUNCTION__);
+    }
+  }
+}
+
+void ImageDaoDeferredWriter::removeTag(const QList<QObject *> &irefs, const QString &tag)
+{
+  startWrite();
+  SQLitePreparedStatement ps(m_conn, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
+  for(QObject *qobj : irefs) {
+    if(auto iref = qobject_cast<ImageRef *>(qobj)) {
+      ps.bind(1, iref->m_fileId);
+      ps.bind(2, tag);
+      ps.exec(__FUNCTION__);
+    }
+  }
+}
+
+void ImageDaoDeferredWriter::sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData) {
+  endWrite();
+  emit syncPoint->sync(userData);
 }

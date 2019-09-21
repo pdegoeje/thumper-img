@@ -17,6 +17,11 @@ ApplicationWindow {
     id: fileUtils
   }
 
+  ImageDaoSyncPoint {
+    id: imageDaoSyncPoint
+    onSync: console.log("sync", userData)
+  }
+
   property var persistentProperties: [
     'pathPrefix',
     'autoTagging',
@@ -755,6 +760,16 @@ ApplicationWindow {
         var func = actionHistory.pop()
         func(false)
       }
+    }
+  }
+
+  Shortcut {
+    sequence: "F5"
+    onActivated: {
+      console.log("F5")
+      ImageDao.deferredAddTag([], "boe")
+      ImageDao.deferredAddTag([], "bah")
+      ImageDao.deferredSync(imageDaoSyncPoint, "test")
     }
   }
 }

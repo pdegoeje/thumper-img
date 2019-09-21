@@ -112,44 +112,6 @@ void ImageFetcher::downloadFinished(QNetworkReply *reply)
       qInfo("Request was redirected.");
     } else {
       QByteArray bytes = reply->readAll();
-      /*
-      QBuffer buffer(&bytes);
-      QImageReader reader(&buffer);
-      qInfo("Type: %s", reader.format().constData());
-      QSize size = reader.size();
-      qInfo("Size: %dx%d", size.width(), size.height());
-      int targetSize = 512;
-      float scalex = (float)targetSize / size.width();
-      float scaley = (float)targetSize / size.height();
-
-      QSize newSize;
-      if(scalex > scaley) {
-        newSize.setWidth(targetSize);
-        newSize.setHeight(size.height() * scalex);
-      } else {
-        newSize.setWidth(size.width() * scaley);
-        newSize.setHeight(targetSize);
-      }
-
-      reader.setScaledSize(newSize);
-
-      int top = (newSize.height() - targetSize) / 2;
-      int left = (newSize.width() - targetSize) / 2;
-
-      QRect clip(left, top, targetSize, targetSize);
-      reader.setScaledClipRect(clip);
-      reader.setBackgroundColor(Qt::black);
-      QImage image = reader.read();
-
-      QByteArray thumbNail;
-      QBuffer output(&thumbNail);
-      output.open(QIODevice::WriteOnly);
-      image.save(&output, "JPG");
-      output.close();
-
-      qInfo("Thumbnail: %d bytes", thumbNail.size());
-      */
-
       emit downloadComplete(url, bytes);
     }
   }

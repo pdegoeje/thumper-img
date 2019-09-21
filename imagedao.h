@@ -8,6 +8,8 @@
 #include <QMutexLocker>
 #include <QElapsedTimer>
 #include <QSize>
+#include <QThread>
+#include <QTimer>
 
 #include "sqlite3.h"
 
@@ -103,6 +105,7 @@ signals:
   void deletedChanged();
 
   friend class ImageDao;
+  friend class ImageDaoDeferredWriter;
 };
 
 class ImageProcessStatus : public QObject {
@@ -111,6 +114,36 @@ public:
 signals:
   void update(const QString &status, qreal fractionComplete);
   void complete();
+};
+
+class ImageDaoSyncPoint: public QObject {
+  Q_OBJECT
+public:
+signals:
+  void sync(const QVariant &userData);
+};
+
+class ImageDaoDeferredWriter : public QObject {
+  Q_OBJECT
+
+  void startTransaction();
+  void endTransaction();
+
+  void startWrite();
+
+  SQLiteConnection *m_conn = nullptr;
+  bool m_inTransaction = false;
+public:
+  ImageDaoDeferredWriter(SQLiteConnection *conn, QObject *parent = nullptr);
+private slots:
+  void endWrite();
+public slots:
+  //void writeImage();
+  void addTag(const QList<QObject *> &irefs, const QString &tag);
+  void removeTag(const QList<QObject *> &irefs, const QString &tag);
+  //void deleteImage(const QList<QObject *> &irefs);
+  //void undeleteImage(const QList<QObject *> &irefs);
+  void sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
 };
 
 
@@ -134,6 +167,7 @@ class ImageDao : public QObject
 
   QElapsedTimer m_timer;
   QMutex m_writeLock;
+  QThread m_writeThread;
 public:
   struct ImageDataContext {
     QByteArray data;
@@ -200,6 +234,9 @@ public:
 private:
   void createTemporaryTable(const QString &tableName, const QStringList &items);
 signals:
+  void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
+  void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
+  void deferredSync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
 public slots:
 };
 

@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
   qmlRegisterType<FileUtils>("thumper", 1, 0, "FileUtils");
+  qmlRegisterType<ImageDaoSyncPoint>("thumper", 1, 0, "ImageDaoSyncPoint");
   //qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
   //qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
 
