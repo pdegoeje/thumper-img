@@ -1,4 +1,7 @@
 #include "sqlitehelper.h"
+#include "sqlite3.h"
+
+#include <QMutexLocker>
 
 void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)
 {
@@ -108,4 +111,32 @@ bool SQLiteConnection::exec(const char *sql, const char *debug_str)
 
 QMutex *SQLiteConnection::writeLock() {
   return m_pool->writeLock();
+}
+
+SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
+  //m_maxPool = maxPool;
+  m_dbname = dbname;
+  m_flags = flags;
+}
+
+SQLiteConnectionPool::~SQLiteConnectionPool() {
+  for(auto conn : m_pool) {
+    delete conn;
+  }
+}
+
+SQLiteConnection *SQLiteConnectionPool::open() {
+  QMutexLocker lock(&m_mutex);
+  if(m_pool.isEmpty()) {
+    return new SQLiteConnection(m_dbname, m_flags, this);
+  } else {
+    auto result = m_pool.last();
+    m_pool.removeLast();
+    return result;
+  }
+}
+
+void SQLiteConnectionPool::close(SQLiteConnection *conn) {
+  QMutexLocker lock(&m_mutex);
+  m_pool.append(conn);
 }

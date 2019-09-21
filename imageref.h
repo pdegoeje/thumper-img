@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSize>
 #include <QSet>
+#include <QDebug>
 
 class ImageRef : public QObject {
   Q_OBJECT
@@ -15,12 +16,16 @@ class ImageRef : public QObject {
   Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
 
 public:
-  qint64 m_fileId;
-  bool m_selected;
-  bool m_deleted;
+  ImageRef(QObject *parent = nullptr) : QObject(parent) {
+    qDebug() << "Created imageRef" << this;
+  }
+
+  qint64 m_fileId = 0;
+  bool m_selected = false;
+  bool m_deleted = false;
   QSet<QString> m_tags;
   QSize m_size;
-  qint64 m_phash;
+  qint64 m_phash = 0;
 
   QStringList tags();
   QSize size() const { return m_size; }

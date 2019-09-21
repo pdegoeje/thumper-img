@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.11.0"
+  title: "Thumper 1.12.0"
 
   FileUtils {
     id: fileUtils
@@ -59,6 +59,8 @@ ApplicationWindow {
 
   Component.onCompleted: {
     loadSettings()
+    allSimpleList = ImageDao.all(showHiddenImages)
+    setViewList(allSimpleList)
   }
 
   Component.onDestruction: {
@@ -88,16 +90,16 @@ ApplicationWindow {
     id: viewModel
   }
   property var viewModelSimpleList: []
-  property var allSimpleList: ImageDao.all(showHiddenImages)
+  property var allSimpleList: []
 
   function imageRefById(fileId) {
     return viewModelSimpleList[viewIdToIndexMap[fileId]]
   }
 
   property var selectionModel: []
-  property var focusSelectionModel: [ viewModelSimpleList[list.currentIndex] ]
-
-  property var effectiveSelectionModel: selectionModel.length > 0 ? selectionModel : focusSelectionModel
+  property var effectiveSelectionModel: selectionModel.length > 0 ? selectionModel :
+                                                                    viewModelSimpleList.length > 0 ? [ viewModelSimpleList[list.currentIndex] ]
+                                                                                                   : []
 
   property var selectionTagCount: []
   property var viewTagCount: []
@@ -111,7 +113,9 @@ ApplicationWindow {
     Component.onCompleted: rebuildAllTagModel()
   }
 
-  onEffectiveSelectionModelChanged: rebuildTagModels()
+  onEffectiveSelectionModelChanged: {
+    rebuildTagModels()
+  }
 
   function rebuildTagModels() {
     selectionTagCount = ImageDao.tagCount(effectiveSelectionModel)
@@ -122,7 +126,8 @@ ApplicationWindow {
   }
 
   function rebuildAllTagModel() {
-    allTagModelList.update(ImageDao.tagCount(allSimpleList))
+    var allTagCount = ImageDao.tagCount(allSimpleList)
+    allTagModelList.update(allTagCount)
   }
 
   function rebuildSelectionModel() {
@@ -150,6 +155,7 @@ ApplicationWindow {
   property var actionHistory: []
 
   function actionAddTag(refList, tag, record = true) {
+    console.log("actionAddTag")
     var actionList = []
 
     actionList = ImageDao.addTag(refList, tag)
@@ -165,6 +171,7 @@ ApplicationWindow {
 
 
   function actionRemoveTag(refList, tag, record = true) {
+    console.log("actionAddTag")
     var actionList = []
 
     actionList = ImageDao.removeTag(refList, tag);
@@ -250,7 +257,7 @@ ApplicationWindow {
   }
 
   onSearchTagsModelChanged: {
-    console.log("Update Search Tags")
+    console.log("onSearchTagsModelChanged")
 
     var refList
     if(searchTagsModel.length > 0) {

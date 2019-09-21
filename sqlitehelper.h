@@ -4,11 +4,10 @@
 #include <QString>
 #include <QByteArray>
 #include <QVector>
-#include <QMutexLocker>
-
-#include "sqlite3.h"
+#include <QMutex>
 
 struct sqlite3;
+struct sqlite3_stmt;
 
 struct SQLiteConnection;
 
@@ -46,43 +45,21 @@ struct SQLiteConnection {
 };
 
 struct SQLiteConnectionPool {
-  //int m_maxPool;
   QVector<SQLiteConnection *> m_pool;
   QString m_dbname;
   int m_flags;
   QMutex m_mutex;
   QMutex m_writeLock;
 
-  SQLiteConnectionPool(const QString &dbname, int flags) {
-    //m_maxPool = maxPool;
-    m_dbname = dbname;
-    m_flags = flags;
-  }
-
-  ~SQLiteConnectionPool() {
-    for(auto conn : m_pool) {
-      delete conn;
-    }
-  }
+  SQLiteConnectionPool(const QString &dbname, int flags);
+  ~SQLiteConnectionPool();
 
   QMutex *writeLock() {
     return &m_writeLock;
   };
 
-  SQLiteConnection *open() {
-    QMutexLocker lock(&m_mutex);
-    if(m_pool.isEmpty()) {
-      return new SQLiteConnection(m_dbname, m_flags, this);
-    } else {
-      auto result = m_pool.last();
-      m_pool.removeLast();
-      return result;
-    }
-  }
-  void close(SQLiteConnection *conn) {
-    QMutexLocker lock(&m_mutex);
-    m_pool.append(conn);
-  }
+  SQLiteConnection *open();
+  void close(SQLiteConnection *conn);
 };
 
 #endif // SQLITEHELPER_H
