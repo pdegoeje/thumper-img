@@ -6,6 +6,10 @@
 
 #include <QImageReader>
 #include <QBuffer>
+#include <QDebug>
+
+#include <set>
+#include <unordered_map>
 
 uint64_t FixImageMetaDataTask::perceptualHash(const QImage &image) {
   Q_ASSERT(image.width() == 32);
@@ -227,4 +231,175 @@ void FixImageMetaDataTask::run() {
   conn->exec("END TRANSACTION", __FUNCTION__);
 
   dao->connPool()->close(conn);
+}
+
+static const uint64_t m1 = 0x5555555555555555; //binary: 0101...
+static const uint64_t m2 = 0x3333333333333333; //binary: 00110011..
+static const uint64_t m4 = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...
+
+static int popcount64b(uint64_t x) {
+  x -= (x >> 1) & m1;             //put count of each 2 bits into those 2 bits
+  x = (x & m2) + ((x >> 2) & m2); //put count of each 4 bits into those 4 bits
+  x = (x + (x >> 4)) & m4;        //put count of each 8 bits into those 8 bits
+  x += x >>  8;  //put count of each 16 bits into their lowest 8 bits
+  x += x >> 16;  //put count of each 32 bits into their lowest 8 bits
+  x += x >> 32;  //put count of each 64 bits into their lowest 8 bits
+  return x & 0x7f;
+}
+
+
+static int hammingDistance(uint64_t a, uint64_t b) {
+  return popcount64b(a ^ b);
+}
+
+
+static void findMatchesLinear(const std::vector<uint64_t> &hashes, std::set<uint64_t> &result, int maxd) {
+  auto iter_end = hashes.end();
+  for(auto i = hashes.begin(); i != iter_end; ++i) {
+    bool found_match = false;
+    for(auto j = i + 1; j != iter_end; ++j) {
+      if(hammingDistance(*i, *j) <= maxd) {
+        result.insert(*j);
+        found_match = true;
+      }
+    }
+    if(found_match) {
+      result.insert(*i);
+    }
+  }
+}
+
+// Each hash belongs to at most one cluster.
+using HashToCluster = std::unordered_map<uint64_t, int>;
+// Each cluster consists of a number of (unique) hashes.
+using ClusterToHashList = std::unordered_map<int, std::vector<uint64_t>>;
+
+static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &hashToCluster, ClusterToHashList &clusters, int &nextClusterId, int maxd) {
+  auto iter_end = hashes.end();
+  for(auto i = hashes.begin(); i != iter_end; ++i) {
+    uint64_t hash_i = *i;
+    for(auto j = i + 1; j != iter_end; ++j) {
+      uint64_t hash_j = *j;
+      int distance = hammingDistance(hash_i, hash_j);
+      if(distance <= maxd) {
+        // found a pair
+        auto icluster = hashToCluster.find(hash_i);
+        auto jcluster = hashToCluster.find(hash_j);
+
+        auto End = hashToCluster.end();
+
+        if(icluster == End && jcluster == End) {
+          // both don't belong to a cluster
+          int id = nextClusterId++;
+
+          clusters[id].push_back(hash_i);
+          clusters[id].push_back(hash_j);
+
+          hashToCluster[hash_i] = id;
+          hashToCluster[hash_j] = id;
+
+          qDebug() << "create new cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
+        } else if(icluster == End && jcluster != End) {
+          // j already belongs to a cluster
+          int id = jcluster->second;
+          clusters[id].push_back(hash_i);
+          hashToCluster[hash_i] = id;
+
+          qDebug() << "merge into j cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
+        } else if(icluster != End && jcluster == End) {
+          // i already belongs to a cluster
+          int id = icluster->second;
+          clusters[id].push_back(hash_j);
+          hashToCluster[hash_j] = id;
+
+          qDebug() << "merge into i cluster" << id << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
+        } else if(icluster->second != jcluster->second) {
+          // both belong to different clusters
+          int idi = icluster->second;
+          int idj = jcluster->second;
+
+          // merge jcluster with icluster
+          auto &icluster_data = clusters[idi];
+          const auto &jcluster_data = clusters[idj];
+
+          for(auto h : jcluster_data) {
+            icluster_data.push_back(h);
+            hashToCluster[h] = idi;
+          }
+
+          // delete jcluster
+          clusters.erase(idj);
+
+          qDebug() << "merge clusters" << idi << "and" << idj << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
+        } else {
+          // both belong to the same cluster already, nothing to do
+        }
+      }
+    }
+  }
+}
+
+
+QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int maxDistance)
+{
+  std::vector<uint64_t> hashList;
+  std::unordered_map<uint64_t, std::vector<ImageRef *>> irefLookup;
+
+  ClusterToHashList clusterToHashList;
+  HashToCluster hashToCluster;
+  int nextClusterId = 0;
+
+  QElapsedTimer timer;
+  timer.start();
+
+  for(auto obj : irefs) {
+    ImageRef *iref = qobject_cast<ImageRef *>(obj);
+    if(iref != nullptr) {
+      uint64_t hash = iref->m_phash;
+
+      auto irefIter = irefLookup.find(hash);
+      if(irefIter != irefLookup.end()) {
+        // hash already exists
+        auto cIter = hashToCluster.find(hash);
+        if(cIter == hashToCluster.end()) {
+          // Hash was seen once before, but a cluster doesn't yet exist.
+          int id = nextClusterId++;
+          hashToCluster[hash] = id;
+          clusterToHashList[id].push_back(hash);
+          qDebug() << "create new cluster" << id << "for hash" << hash;
+        }
+
+        irefIter->second.push_back(iref);
+      } else {
+        // new hash
+        hashList.push_back(hash);
+        irefLookup.emplace(hash, std::vector<ImageRef *>{ iref });
+      }
+    }
+  }
+
+  qDebug() << "pre-existing clusters" << nextClusterId;
+
+  findClusters(hashList, hashToCluster, clusterToHashList, nextClusterId, maxDistance);
+
+  QList<QObject *> output;
+
+  // for each cluster
+  for(const auto &p : clusterToHashList) {
+    qDebug() << "Cluster Id" << p.first;
+    // for each hash
+    for(uint64_t h : p.second) {
+      // for each iref
+      qDebug() << "  Hash" << h;
+      for(auto irefptr : irefLookup[h]) {
+
+        qDebug() << "    Iref" << irefptr->m_fileId;
+        output.push_back(irefptr);
+      }
+    }
+  }
+
+  qDebug() <<  __FUNCTION__ << "Time:" << timer.elapsed() << "ms Number of results:" << output.size();
+
+  return output;
 }
