@@ -153,7 +153,7 @@ ApplicationWindow {
     var actionList = []
 
     ImageDao.lockWrite();
-    actionList = ImageDao.addTagMultiple(refList, tag)
+    actionList = ImageDao.addTag(refList, tag)
     ImageDao.unlockWrite();
     rebuildTagModels()
     rebuildAllTagModel()
@@ -172,7 +172,7 @@ ApplicationWindow {
     var actionList = []
 
     ImageDao.lockWrite();
-    actionList = ImageDao.removeTagMultiple(refList, tag);
+    actionList = ImageDao.removeTag(refList, tag);
     ImageDao.unlockWrite();
     rebuildTagModels()
     rebuildAllTagModel()
@@ -239,14 +239,10 @@ ApplicationWindow {
 
         var foundTags = basename.match(word)
 
-        console.log("Tags found", foundTags)
-        ImageDao.lockWrite()
-        ImageDao.transactionStart()
+        console.log("Tags found", foundTags)        
         for(var i in foundTags) {
-          ImageDao.addTag(ref, foundTags[i])
+          ImageDao.addTag([ref], foundTags[i])
         }
-        ImageDao.transactionEnd()
-        ImageDao.unlockWrite()
       }
 
       allSimpleList.push(ref)

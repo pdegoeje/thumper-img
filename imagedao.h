@@ -191,11 +191,8 @@ public:
   Q_INVOKABLE void metaPut(const QString &key, const QVariant &val);
   Q_INVOKABLE QVariant metaGet(const QString &key);
 
-  Q_INVOKABLE bool addTag(ImageRef *iref, const QString &tag);
-  Q_INVOKABLE bool removeTag(ImageRef *iref, const QString &tag);
-
-  Q_INVOKABLE QList<QObject *> addTagMultiple(const QList<QObject *> &irefs, const QString &tag);
-  Q_INVOKABLE QList<QObject *> removeTagMultiple(const QList<QObject *> &irefs, const QString &tag);
+  Q_INVOKABLE QList<QObject *> addTag(const QList<QObject *> &irefs, const QString &tag);
+  Q_INVOKABLE QList<QObject *> removeTag(const QList<QObject *> &irefs, const QString &tag);
   Q_INVOKABLE QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDuplicates = 5);
   Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);

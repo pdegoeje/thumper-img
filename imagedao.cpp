@@ -224,29 +224,7 @@ QVariant ImageDao::metaGet(const QString &key)
   return result;
 }
 
-bool ImageDao::addTag(ImageRef *iref, const QString &tag) {
-  if(iref->m_tags.contains(tag))
-    return false;
-
-  iref->m_tags.insert(tag);
-  addTag(iref->m_fileId, tag);
-  emit iref->tagsChanged();
-
-  return true;
-}
-
-bool ImageDao::removeTag(ImageRef *iref, const QString &tag) {
-  if(!iref->m_tags.contains(tag))
-    return false;
-
-  iref->m_tags.remove(tag);
-  removeTag(iref->m_fileId, tag);
-  emit iref->tagsChanged();
-
-  return true;
-}
-
-QList<QObject *> ImageDao::addTagMultiple(const QList<QObject *> &irefs, const QString &tag)
+QList<QObject *> ImageDao::addTag(const QList<QObject *> &irefs, const QString &tag)
 {
   QList<QObject *> result;
 
@@ -266,7 +244,7 @@ QList<QObject *> ImageDao::addTagMultiple(const QList<QObject *> &irefs, const Q
   return result;
 }
 
-QList<QObject *> ImageDao::removeTagMultiple(const QList<QObject *> &irefs, const QString &tag)
+QList<QObject *> ImageDao::removeTag(const QList<QObject *> &irefs, const QString &tag)
 {
   QList<QObject *> result;
 
