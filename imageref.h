@@ -16,9 +16,7 @@ class ImageRef : public QObject {
   Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
 
 public:
-  ImageRef(QObject *parent = nullptr) : QObject(parent) {
-    qDebug() << "Created imageRef" << this;
-  }
+  ImageRef(QObject *parent = nullptr) : QObject(parent) { }
 
   qint64 m_fileId = 0;
   bool m_selected = false;

@@ -15,6 +15,7 @@ struct SQLitePreparedStatement {
   sqlite3_stmt *m_stmt = nullptr;
 
   void init(sqlite3 *db, const char *statement);
+  void init(SQLiteConnection *conn, const char *statement);
   void exec(const char *debug_str = nullptr); // step + reset
   void bind(int param, const QString &text);
   void bind(int param, qint64 value);
@@ -36,12 +37,14 @@ struct SQLiteConnectionPool;
 struct SQLiteConnection {
   sqlite3 *m_db;
   SQLiteConnectionPool *m_pool;
+  bool m_opened = false;
 
   SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool);
   ~SQLiteConnection();
 
   bool exec(const char *sql, const char *debug_str = nullptr);
   QMutex *writeLock();
+  void close();
 };
 
 struct SQLiteConnectionPool {

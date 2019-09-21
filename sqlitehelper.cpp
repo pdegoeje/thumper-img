@@ -1,6 +1,7 @@
 #include "sqlitehelper.h"
 #include "sqlite3.h"
 
+#include <QDebug>
 #include <QMutexLocker>
 
 void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)
@@ -8,6 +9,11 @@ void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)
   if(sqlite3_prepare_v2(db, statement, -1, &m_stmt, nullptr) != SQLITE_OK) {
     qWarning("Failed to prepare statement: %s", sqlite3_errmsg(db));
   }
+}
+
+void SQLitePreparedStatement::init(SQLiteConnection *conn, const char *statement)
+{
+  init(conn->m_db, statement);
 }
 
 void SQLitePreparedStatement::exec(const char *debug_str)
@@ -113,6 +119,11 @@ QMutex *SQLiteConnection::writeLock() {
   return m_pool->writeLock();
 }
 
+void SQLiteConnection::close()
+{
+  m_pool->close(this);
+}
+
 SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
   //m_maxPool = maxPool;
   m_dbname = dbname;
@@ -121,22 +132,31 @@ SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
 
 SQLiteConnectionPool::~SQLiteConnectionPool() {
   for(auto conn : m_pool) {
+    if(conn->m_opened) {
+      qDebug() << __FUNCTION__ << "SQLiteConnection still open";
+    }
     delete conn;
   }
+  qDebug() << __FUNCTION__ << "All connections closed";
 }
 
 SQLiteConnection *SQLiteConnectionPool::open() {
   QMutexLocker lock(&m_mutex);
+  SQLiteConnection *result;
   if(m_pool.isEmpty()) {
-    return new SQLiteConnection(m_dbname, m_flags, this);
+    result = new SQLiteConnection(m_dbname, m_flags, this);
   } else {
-    auto result = m_pool.last();
+    result = m_pool.last();
     m_pool.removeLast();
-    return result;
   }
+  result->m_opened = true;
+  return result;
 }
 
 void SQLiteConnectionPool::close(SQLiteConnection *conn) {
   QMutexLocker lock(&m_mutex);
-  m_pool.append(conn);
+  if(conn->m_opened) {
+    conn->m_opened = false;
+    m_pool.append(conn);
+  }
 }

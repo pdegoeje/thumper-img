@@ -34,6 +34,7 @@ class ImageDaoDeferredWriter : public QObject {
   bool m_inTransaction = false;
 public:
   ImageDaoDeferredWriter(SQLiteConnection *conn, QObject *parent = nullptr);
+  virtual ~ImageDaoDeferredWriter();
 private slots:
   void endWrite();
 public slots:
@@ -56,8 +57,6 @@ class ImageDao : public QObject
 
   SQLiteConnectionPool m_connPool;
   SQLiteConnection *m_conn;
-
-  sqlite3 *m_db = nullptr;
 
   SQLitePreparedStatement m_ps_tagsById;
   SQLitePreparedStatement m_ps_idByHash;

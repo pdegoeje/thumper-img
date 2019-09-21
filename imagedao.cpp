@@ -34,7 +34,6 @@ ImageDao::ImageDao(QObject *parent) :
   m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
 {
   m_conn = m_connPool.open();
-  m_db = m_conn->m_db;
 
   auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
   connect(this, &ImageDao::deferredSync, idfw, &ImageDaoDeferredWriter::sync);
@@ -111,11 +110,11 @@ ImageDao::ImageDao(QObject *parent) :
     metaPut(QStringLiteral("version"), version = 5);
   }
 
-  m_ps_tagsById.init(m_db, "SELECT tag FROM tag WHERE id = ?1");
-  m_ps_idByHash.init(m_db, "SELECT id FROM store WHERE hash = ?1");
+  m_ps_tagsById.init(m_conn, "SELECT tag FROM tag WHERE id = ?1");
+  m_ps_idByHash.init(m_conn, "SELECT id FROM store WHERE hash = ?1");
 
-  m_ps_transStart.init(m_db, "BEGIN TRANSACTION");
-  m_ps_transEnd.init(m_db, "END TRANSACTION");
+  m_ps_transStart.init(m_conn, "BEGIN TRANSACTION");
+  m_ps_transEnd.init(m_conn, "END TRANSACTION");
 error:
   return;
 }
@@ -126,14 +125,13 @@ ImageDao::~ImageDao()
 {
   m_writeThread.quit();
   m_writeThread.wait();
-  m_connPool.close(m_conn);
+  m_conn->close();
   qInfo(__FUNCTION__);
 }
 
 bool ImageDao::tableExists(const QString &table)
 {
-  SQLitePreparedStatement ps;
-  ps.init(m_db, "SELECT name FROM sqlite_master WHERE type='table' AND name=?1");
+  SQLitePreparedStatement ps(m_conn, "SELECT name FROM sqlite_master WHERE type='table' AND name=?1");
   ps.bind(1, table);
   return ps.step();
 }
@@ -351,7 +349,7 @@ void ImageDao::purgeDeletedImages()
   m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
   m_conn->exec("DELETE FROM image WHERE deleted = 1", __FUNCTION__);
   m_conn->exec("END TRANSACTION", __FUNCTION__);
-  qInfo("Purged %d images from the database", sqlite3_changes(m_db));
+  qInfo("Purged %d images from the database", sqlite3_changes(m_conn->m_db));
 }
 
 QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
@@ -526,6 +524,11 @@ void ImageDaoDeferredWriter::startWrite() {
 ImageDaoDeferredWriter::ImageDaoDeferredWriter(SQLiteConnection *conn, QObject *parent) : m_conn(conn), QObject(parent)
 {
 
+}
+
+ImageDaoDeferredWriter::~ImageDaoDeferredWriter()
+{
+  m_conn->close();
 }
 
 void ImageDaoDeferredWriter::endWrite() {
