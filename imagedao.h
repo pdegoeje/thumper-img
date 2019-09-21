@@ -2,6 +2,7 @@
 #define IMAGEDAO_H
 
 #include "sqlitehelper.h"
+#include "imagemetadata.h"
 
 #include <QObject>
 #include <QVariantMap>
@@ -40,13 +41,6 @@ signals:
   friend class ImageDaoDeferredWriter;
 };
 
-class ImageProcessStatus : public QObject {
-  Q_OBJECT
-public:
-signals:
-  void update(const QString &status, qreal fractionComplete);
-  void complete();
-};
 
 class ImageDaoSyncPoint: public QObject {
   Q_OBJECT

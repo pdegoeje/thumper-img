@@ -16,6 +16,7 @@ SOURCES += \
     dct/fast-dct-lee.c \
     fileutils.cpp \
     imagedao.cpp \
+    imagemetadata.cpp \
     main.cpp \
     imageprocessor.cpp \
     sqlite3.c \
@@ -40,6 +41,7 @@ HEADERS += \
     dct/fast-dct-lee.h \
     fileutils.h \
     imagedao.h \
+    imagemetadata.h \
     imageprocessor.h \
     simpleset.h \
     sqlite3.h \
