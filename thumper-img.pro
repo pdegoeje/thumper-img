@@ -19,6 +19,7 @@ SOURCES += \
     main.cpp \
     imageprocessor.cpp \
     sqlite3.c \
+    sqlitehelper.cpp \
     taglist.cpp \
     thumperimageprovider.cpp
 
@@ -42,6 +43,7 @@ HEADERS += \
     imageprocessor.h \
     simpleset.h \
     sqlite3.h \
+    sqlitehelper.h \
     taglist.h \
     thumperimageprovider.h
 

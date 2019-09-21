@@ -1,6 +1,8 @@
 #ifndef IMAGEDAO_H
 #define IMAGEDAO_H
 
+#include "sqlitehelper.h"
+
 #include <QObject>
 #include <QVariantMap>
 #include <QSet>
@@ -10,76 +12,6 @@
 #include <QSize>
 #include <QThread>
 #include <QTimer>
-
-#include "sqlite3.h"
-
-struct sqlite3;
-
-struct SQLiteConnection;
-
-struct SQLitePreparedStatement {
-  sqlite3_stmt *m_stmt = nullptr;
-
-  void init(sqlite3 *db, const char *statement);
-  void exec(const char *debug_str = nullptr); // step + reset
-  void bind(int param, const QString &text);
-  void bind(int param, qint64 value);
-  void bind(int param, const QByteArray &data);
-  QString resultString(int index);
-  qint64 resultInteger(int index);
-  bool step(const char *debug_str = nullptr);
-  void reset();
-  void clear();
-  void destroy();
-
-  SQLitePreparedStatement() { }
-  SQLitePreparedStatement(SQLiteConnection *conn, const char *sql);
-  ~SQLitePreparedStatement() { destroy(); }
-};
-
-struct SQLiteConnection {
-  sqlite3 *m_db;
-
-  SQLiteConnection(const QString &dbname, int flags);
-  ~SQLiteConnection();
-
-  bool exec(const char *sql, const char *debug_str = nullptr);
-};
-
-struct SQLiteConnectionPool {
-  //int m_maxPool;
-  QVector<SQLiteConnection *> m_pool;
-  QString m_dbname;
-  int m_flags;
-  QMutex m_mutex;
-
-  SQLiteConnectionPool(const QString &dbname, int flags) {
-    //m_maxPool = maxPool;
-    m_dbname = dbname;
-    m_flags = flags;
-  }
-
-  ~SQLiteConnectionPool() {
-    for(auto conn : m_pool) {
-      delete conn;
-    }
-  }
-
-  SQLiteConnection *open() {
-    QMutexLocker lock(&m_mutex);
-    if(m_pool.isEmpty()) {
-      return new SQLiteConnection(m_dbname, m_flags);
-    } else {
-      auto result = m_pool.last();
-      m_pool.removeLast();
-      return result;
-    }
-  }
-  void close(SQLiteConnection *conn) {
-    QMutexLocker lock(&m_mutex);
-    m_pool.append(conn);
-  }
-};
 
 class ImageRef : public QObject {
   Q_OBJECT
