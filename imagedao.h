@@ -141,8 +141,7 @@ public slots:
   //void writeImage();
   void addTag(const QList<QObject *> &irefs, const QString &tag);
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
-  //void deleteImage(const QList<QObject *> &irefs);
-  //void undeleteImage(const QList<QObject *> &irefs);
+  void updateDeleted(const QList<QObject *> &irefs, bool deleted);
   void sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
 };
 
@@ -231,6 +230,7 @@ public:
 private:
   void createTemporaryTable(const QString &tableName, const QStringList &items);
 signals:
+  void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredSync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
