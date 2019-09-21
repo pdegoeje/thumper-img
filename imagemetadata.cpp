@@ -1,5 +1,6 @@
 #include "imagemetadata.h"
 #include "imagedao.h"
+
 #include "sqlitehelper.h"
 
 #include "dct/fast-dct-lee.h"

@@ -43,6 +43,7 @@ HEADERS += \
     imagedao.h \
     imagemetadata.h \
     imageprocessor.h \
+    imageref.h \
     simpleset.h \
     sqlite3.h \
     sqlitehelper.h \
