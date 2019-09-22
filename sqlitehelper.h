@@ -13,7 +13,12 @@ struct SQLiteConnection;
 
 #define DBG_STRINGIFY(x) #x
 #define DBG_TOSTRING(x) DBG_STRINGIFY(x)
+
+#ifdef _WIN32
 #define SRC_LOCATION __FUNCTION__ "#" DBG_TOSTRING(__LINE__)
+#else
+#define SRC_LOCATION __FILE__ "#" DBG_TOSTRING(__LINE__)
+#endif
 
 struct SQLitePreparedStatement {
   sqlite3_stmt *m_stmt = nullptr;
