@@ -221,15 +221,6 @@ QList<QObject *> ImageDao::findAllDuplicates(const QList<QObject *> &irefs, int 
   return ::findAllDuplicates(irefs, maxDuplicates);
 }
 
-
-QString ImageDao::hashById(qint64 id)
-{
-  SQLitePreparedStatement ps(m_conn, "SELECT hash FROM store WHERE id = ?1");
-  ps.bind(1, id);
-  ps.step(SRC_LOCATION);
-  return ps.resultString(0);
-}
-
 QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
   QMap<QString, int> result;
   for(QObject *qobj : irefs) {
@@ -316,25 +307,19 @@ QStringList ImageDao::tagsById(qint64 id)
   return tags;
 }
 
-ImageRef *ImageDao::findHash(const QString &hash)
+ImageRef *ImageDao::createImageRef(qint64 id)
 {
-  SQLitePreparedStatement m_ps_idByHash(m_conn, "SELECT id FROM store WHERE hash = ?1");
-
-  m_ps_idByHash.bind(1, hash);
-  if(!m_ps_idByHash.step(SRC_LOCATION)) {
-    m_ps_idByHash.reset();
-    return nullptr;
-  }
-
-  qint64 id = m_ps_idByHash.resultInteger(0);
-
-  m_ps_idByHash.reset();
+  SQLitePreparedStatement ps(m_conn, "SELECT width, height, phash, deleted FROM image WHERE id = ?1");
+  ps.bind(1, id);
+  ps.step(SRC_LOCATION);
 
   ImageRef *iref = new ImageRef();
-
   iref->m_tags = QSet<QString>::fromList(tagsById(id));
   iref->m_fileId = id;
   iref->m_selected = false;
+  iref->m_size = QSize(ps.resultInteger(0), ps.resultInteger(1));
+  iref->m_phash = ps.resultInteger(2);
+  iref->m_deleted = ps.resultInteger(3);
 
   return iref;
 }
@@ -599,7 +584,9 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
     ps.exec(SRC_LOCATION);
   }
 
+  writeMetaData(m_conn, data, last_id);
+
   endWrite();
 
-  emit writeComplete(url, hash);
+  emit writeComplete(url, last_id);
 }

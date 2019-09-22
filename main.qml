@@ -221,7 +221,7 @@ ApplicationWindow {
   ImageProcessor {
     id: processor
     onImageReady: {
-      var ref = ImageDao.findHash(hash)
+      var ref = ImageDao.createImageRef(fileId)
       var fileName = urlFileName(url)
       var regex = /^([a-zA-Z-_ ]+)[0-9]*\.(\w+)$/
       if(autoTagging && regex.test(fileName)) {

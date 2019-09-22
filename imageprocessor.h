@@ -38,7 +38,7 @@ public:
   Q_INVOKABLE void downloadList(const QList<QUrl> &urls);
   Q_INVOKABLE QString urlFileName(const QUrl &url);
 signals:
-  void imageReady(const QUrl &url, const QString &hash);
+  void imageReady(const QUrl &url, quint64 fileId);
   void startDownload(const QUrl &url);
 };
 

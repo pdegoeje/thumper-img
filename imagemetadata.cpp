@@ -180,36 +180,38 @@ QImage autoCrop(const QImage &image, int threshold) {
   return image;
 }
 
-void writeMetaData(SQLiteConnection *m_conn, QByteArray &data, quint64 id)
+bool writeMetaData(SQLiteConnection *conn, const QByteArray &imageData, quint64 imageId)
 {
-  QBuffer buffer(&data);
+  QBuffer buffer((QByteArray *)&imageData);
   QImageReader reader(&buffer);
 
   QSize size = reader.size();
 
   reader.setBackgroundColor(Qt::darkGray);
   reader.setScaledSize({128, 128});
-  //reader.setScaledSize({9, 8});
 
   QImage image = reader.read();
-  if(!image.isNull()) {
-    image.convertTo(QImage::Format_Grayscale8);
-    //image.save(QStringLiteral("%1_crop_input.png").arg(id));
-    image = autoCrop(image, 10);
-    //image.save(QStringLiteral("%1_crop_output.png").arg(id));
-    image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    image.convertTo(QImage::Format_Grayscale8);
-    //image.save(QStringLiteral("%1_phash_input.png").arg(id));
-    uint64_t phash = perceptualHash(image);
-    //qDebug() << "id" << id << "phash" << phash;
+  if(image.isNull())
+    return false;
 
-    SQLitePreparedStatement ps_update(m_conn, "UPDATE image SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
-    ps_update.bind(1, size.width());
-    ps_update.bind(2, size.height());
-    ps_update.bind(3, phash);
-    ps_update.bind(4, id);
-    ps_update.exec(__FUNCTION__);
-  }
+  image.convertTo(QImage::Format_Grayscale8);
+  //image.save(QStringLiteral("%1_crop_input.png").arg(id));
+  image = autoCrop(image, 10);
+  //image.save(QStringLiteral("%1_crop_output.png").arg(id));
+  image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+  image.convertTo(QImage::Format_Grayscale8);
+  //image.save(QStringLiteral("%1_phash_input.png").arg(id));
+  uint64_t phash = perceptualHash(image);
+  //qDebug() << "id" << id << "phash" << phash;
+
+  SQLitePreparedStatement ps_update(conn, "UPDATE image SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
+  ps_update.bind(1, size.width());
+  ps_update.bind(2, size.height());
+  ps_update.bind(3, phash);
+  ps_update.bind(4, imageId);
+  ps_update.exec(SRC_LOCATION);
+
+  return true;
 }
 
 void FixImageMetaDataTask::run() {

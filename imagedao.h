@@ -42,7 +42,7 @@ public slots:
 
   void writeImage(const QUrl &url, const QByteArray &data);
 signals:
-  void writeComplete(const QUrl &url, const QString &hash);
+  void writeComplete(const QUrl &url, quint64 fileId);
 };
 
 
@@ -82,12 +82,11 @@ public:
   Q_INVOKABLE QList<QObject *> addTag(const QList<QObject *> &irefs, const QString &tag);
   Q_INVOKABLE QList<QObject *> removeTag(const QList<QObject *> &irefs, const QString &tag);
   Q_INVOKABLE QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDuplicates = 5);
-  Q_INVOKABLE QString hashById(qint64 id);
   Q_INVOKABLE QVariantList tagCount(const QList<QObject *> &irefs);
   Q_INVOKABLE QList<QObject *> search(const QList<QObject *> &irefs, const QStringList &tags);
   Q_INVOKABLE QList<QObject *> all(bool includeDeleted);
   Q_INVOKABLE QStringList tagsById(qint64 id);
-  Q_INVOKABLE ImageRef *findHash(const QString &hash);
+  Q_INVOKABLE ImageRef *createImageRef(qint64 id);
 
   Q_INVOKABLE void purgeDeletedImages();
   Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
@@ -108,7 +107,7 @@ signals:
   void deferredSync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
 
   void deferredWriteImage(const QUrl &url, const QByteArray &data);
-  void writeComplete(const QUrl &url, const QString &hash);
+  void writeComplete(const QUrl &url, qint64 id);
 public slots:
 };
 
