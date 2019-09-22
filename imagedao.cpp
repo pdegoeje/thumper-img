@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include <QUrl>
 #include <QImage>
 #include <QImageReader>
 #include <QBuffer>
@@ -574,14 +575,15 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
 {
   startWrite();
 
-  SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
-  SQLitePreparedStatement ps_image(m_conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
-
   QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
   QString hash = hashBytes.toHex();
-  ps.bind(1, hash);
-  ps.bind(2, data);
-  ps.exec(SRC_LOCATION);
+
+  {
+    SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
+    ps.bind(1, hash);
+    ps.bind(2, data);
+    ps.exec(SRC_LOCATION);
+  }
 
   if(sqlite3_changes(m_conn->m_db) == 0) {
     qWarning("Duplicate image not inserted");
@@ -589,10 +591,13 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   }
 
   qint64 last_id = sqlite3_last_insert_rowid(m_conn->m_db);
-  qInfo("Inserted image with ID %lld", last_id);
+  qInfo() << "Inserted image with ID" << last_id << "from" << url.toString();
 
-  ps_image.bind(1, last_id);
-  ps_image.exec(SRC_LOCATION);
+  {
+    SQLitePreparedStatement ps(m_conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
+    ps.bind(1, last_id);
+    ps.exec(SRC_LOCATION);
+  }
 
   endWrite();
 

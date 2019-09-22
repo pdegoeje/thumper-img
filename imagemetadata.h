@@ -4,8 +4,14 @@
 #include <QObject>
 #include <QRunnable>
 #include <QImage>
+#include <QByteArray>
 
 QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDistance);
+uint64_t perceptualHash(const QImage &image);
+uint64_t blockHash(const QImage &image);
+uint64_t differenceHash(const QImage &image);
+QImage autoCrop(const QImage &image, int threshold);
+void writeMetaData(struct SQLiteConnection *m_conn, QByteArray &data, quint64 id);
 
 class ImageProcessStatus : public QObject {
   Q_OBJECT
@@ -20,13 +26,6 @@ class FixImageMetaDataTask : public QRunnable {
 
 public:
   FixImageMetaDataTask(ImageProcessStatus *status) : status(status) { }
-
-  uint64_t perceptualHash(const QImage &image);
-  uint64_t blockHash(const QImage &image);
-  uint64_t differenceHash(const QImage &image);
-
-  QImage autoCrop(const QImage &image, int threshold);
-
   void run() override;
 };
 
