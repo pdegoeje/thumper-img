@@ -757,10 +757,7 @@ ApplicationWindow {
   Shortcut {
     sequence: "F5"
     onActivated: {
-      console.log("F5")
-      ImageDao.deferredAddTag([], "boe")
-      ImageDao.deferredAddTag([], "bah")
-      ImageDao.deferredSync(imageDaoSyncPoint, "test")
+      console.log(Material.backgroundColor)
     }
   }
 }

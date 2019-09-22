@@ -21,6 +21,7 @@
 #include <QDataStream>
 #include <QThreadPool>
 #include <QCryptographicHash>
+#include <QPainter>
 
 ImageDao *ImageDao::m_instance;
 
@@ -88,7 +89,7 @@ ImageDao::ImageDao(QObject *parent) :
   if(version == 3) {
     qInfo("Upgrading database format from 3 to 4");
 
-    EXEC("BEGIN TRANSACTION");
+    EXEC("BEGIN");
 
     EXEC("CREATE TABLE new_store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, image BLOB)");
     EXEC("CREATE TABLE image (id INTEGER PRIMARY KEY, date INTEGER, width INTEGER, height INTEGER, phash INTEGER, origin_url TEXT)");
@@ -99,7 +100,7 @@ ImageDao::ImageDao(QObject *parent) :
 
     metaPut(QStringLiteral("version"), version = 4);
 
-    EXEC("END TRANSACTION");
+    EXEC("COMMIT");
   }
 
   if(version == 4) {
@@ -340,11 +341,11 @@ ImageRef *ImageDao::createImageRef(qint64 id)
 void ImageDao::purgeDeletedImages()
 {
   QMutexLocker writeLock(m_conn->writeLock());
-  m_conn->exec("BEGIN TRANSACTION", SRC_LOCATION);
+  m_conn->exec("BEGIN", SRC_LOCATION);
   m_conn->exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
   m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
   m_conn->exec("DELETE FROM image WHERE deleted = 1", SRC_LOCATION);
-  m_conn->exec("END TRANSACTION", SRC_LOCATION);
+  m_conn->exec("COMMIT", SRC_LOCATION);
   qInfo("Purged %d images from the database", sqlite3_changes(m_conn->m_db));
 }
 
@@ -487,12 +488,14 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     actualSize = iref->m_size;
   }
 
-  QSize thumbRequestSize = { 320, 320 };
+  QSize thumbnailBaseSize = { 320, 320 };
+  QSize maximumImageSize = { 640, 640 };
 
-  bool downScale = greaterThan(actualSize, requestedSize);
-  bool useThumbnail = downScale && greaterThanOrEqual(thumbRequestSize, requestedSize);
+  bool isRequestSmallerThanActual = greaterThanOrEqual(actualSize, requestedSize);
+  bool isRequestSmallerThanThumb = greaterThanOrEqual(thumbnailBaseSize, requestedSize);
+  bool isCutoffSmallerThanActual = greaterThanOrEqual(actualSize, maximumImageSize);
 
-  if(useThumbnail) {
+  if(isRequestSmallerThanThumb && isRequestSmallerThanThumb && isCutoffSmallerThanActual) {
     SQLiteConnection *conn = m_connPool.open();
     {
       SQLitePreparedStatement ps(conn, "SELECT image FROM thumb320 WHERE id = ?1");
@@ -503,29 +506,41 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
       if(thumbData.isNull()) {
         ps.destroy();
 
-        qDebug() << "Generating thumbnail for" << id;
+        //qDebug() << "Generating thumbnail for" << id;
 
         SQLitePreparedStatement ps_r(conn, "SELECT image FROM store WHERE id = ?1");
         ps_r.bind(1, id);
         ps_r.step(SRC_LOCATION);
 
-        QSize thumbScale = scaleOverlap(actualSize, thumbRequestSize);
-        qDebug() << "Thumb dimensions" << thumbScale;
+        QSize thumbScale = scaleOverlap(actualSize, thumbnailBaseSize);
+        //qDebug() << "Thumb dimensions" << thumbScale;
 
         QByteArray rawImageData = ps_r.resultBlobPointer(0);
         if(!rawImageData.isNull()) {
           QBuffer buffer(&rawImageData);
           QImageReader imageReader(&buffer);
-          imageReader.setScaledSize(scaleOverlap(actualSize, thumbRequestSize));
+          imageReader.setScaledSize(scaleOverlap(actualSize, thumbnailBaseSize));
           imageReader.setBackgroundColor(Qt::darkGray);
           QImage thumbNail = imageReader.read();
-          thumbNail.convertTo(QImage::Format_RGB32);
+
+          if(thumbNail.format() != QImage::Format_RGB32) {
+            // convert transparent pixels to dark grey.
+            QImage canvas(thumbNail.size(), QImage::Format_RGB32);
+            canvas.fill(0xFF303030);
+            {
+              QPainter painter(&canvas);
+              painter.drawImage(0, 0, thumbNail);
+            }
+            thumbNail = canvas;
+          }
 
           QBuffer outputBuffer;
-          thumbNail.save(&outputBuffer, "JPEG", 95);
+          thumbNail.save(&outputBuffer, "JPEG", 92);
 
           qreal reduction = (qreal)outputBuffer.buffer().length() / rawImageData.length();
-          qDebug() << "Thumb size fraction" << reduction;
+          if(reduction > 1) {
+            qDebug() << "Thumbnail" << id << "uses too much space" << reduction << "From" << actualSize << "To" << thumbNail.size();
+          }
 
           ps_r.destroy();
 
@@ -533,12 +548,12 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
 
           {
             QMutexLocker lock(conn->writeLock());
-            conn->exec("BEGIN TRANSACTION");
+            conn->exec("BEGIN");
             SQLitePreparedStatement ps_w(conn, "INSERT INTO thumb320 (id, image) VALUES (?1, ?2)");
             ps_w.bind(1, id);
             ps_w.bind(2, outputBuffer.buffer());
             ps_w.exec(SRC_LOCATION);
-            conn->exec("END TRANSACTION");
+            conn->exec("COMMIT");
           }
         }
       } else {
@@ -590,7 +605,7 @@ QStringList ImageRef::tags()
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
     m_conn->writeLock()->lock();
-    m_conn->exec("BEGIN TRANSACTION", SRC_LOCATION);
+    m_conn->exec("BEGIN", SRC_LOCATION);
     m_inTransaction = true;
     QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
   }
@@ -608,7 +623,7 @@ ImageDaoDeferredWriter::~ImageDaoDeferredWriter()
 
 void ImageDaoDeferredWriter::endWrite() {
   if(m_inTransaction) {
-    m_conn->exec("END TRANSACTION", SRC_LOCATION);
+    m_conn->exec("COMMIT", SRC_LOCATION);
     m_inTransaction = false;
     m_conn->writeLock()->unlock();
   }

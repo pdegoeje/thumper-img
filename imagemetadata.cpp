@@ -219,7 +219,7 @@ void FixImageMetaDataTask::run() {
   ImageDao *dao = ImageDao::instance();
   SQLiteConnection *conn = dao->connPool()->open();
 
-  conn->exec("BEGIN TRANSACTION", SRC_LOCATION);
+  conn->exec("BEGIN", SRC_LOCATION);
   {
 
     SQLitePreparedStatement ps(conn, "SELECT id FROM image ORDER BY id");
@@ -237,7 +237,7 @@ void FixImageMetaDataTask::run() {
     emit status->complete();
   }
 
-  conn->exec("END TRANSACTION", SRC_LOCATION);
+  conn->exec("COMMIT", SRC_LOCATION);
   conn->close();
 }
 

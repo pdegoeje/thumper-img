@@ -25,21 +25,21 @@ void SQLitePreparedStatement::exec(const char *debug_str)
 void SQLitePreparedStatement::bind(int param, const QString &text)
 {
   if(sqlite3_bind_text16(m_stmt, param, text.constData(), text.size() * 2, SQLITE_TRANSIENT) != SQLITE_OK) {
-    qWarning("Failed to bind: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
+    qWarning("SQLite bind text error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
 void SQLitePreparedStatement::bind(int param, qint64 value)
 {
   if(sqlite3_bind_int64(m_stmt, param, value) != SQLITE_OK) {
-    qWarning("Failed to bind: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
+    qWarning("SQLite bind integer error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
 void SQLitePreparedStatement::bind(int param, const QByteArray &data)
 {
   if(sqlite3_bind_blob(m_stmt, param, data.data(), data.length(), SQLITE_TRANSIENT) != SQLITE_OK) {
-    qWarning("Failed to bind: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
+    qWarning("SQLite bind blob error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
@@ -74,7 +74,7 @@ bool SQLitePreparedStatement::step(const char *debug_str)
     return false;
   }
 
-  qWarning("Failed to step (%s): %d %s", debug_str, rval, sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
+  qWarning("%s: SQLite step error: %s", debug_str, sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   return false;
 }
 
@@ -112,13 +112,14 @@ SQLiteConnection::SQLiteConnection(const QString &dbname, int flags, SQLiteConne
 SQLiteConnection::~SQLiteConnection()
 {
   sqlite3_close_v2(m_db);
+  qInfo("Closed database connection");
 }
 
 bool SQLiteConnection::exec(const char *sql, const char *debug_str)
 {
   char *errmsg;
   if(sqlite3_exec(m_db, sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
-    qWarning("Failed to exec (%s): %s", debug_str, errmsg);
+    qWarning("%s: SQLite exec error: %s", debug_str, errmsg);
     return false;
   }
 
