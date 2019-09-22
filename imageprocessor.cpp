@@ -100,7 +100,9 @@ void ImageFetcher::downloadFinished(QNetworkReply *reply)
              qPrintable(reply->errorString()));
   } else {
     if (isHttpRedirect(reply)) {
-      qInfo("Request was redirected.");
+      QUrl newLocation = reply->header(QNetworkRequest::LocationHeader).toUrl();
+      qDebug() << "Request was redirected. Location:" << newLocation;
+      emit startDownload(newLocation);
     } else {
       QByteArray bytes = reply->readAll();
       emit downloadComplete(url, bytes);
