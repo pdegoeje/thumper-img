@@ -25,7 +25,7 @@ ImageDao *ImageDao::m_instance;
 
 #define EXEC(sql) \
 do { \
-  if(!m_conn->exec(sql, __FUNCTION__)) \
+  if(!m_conn->exec(sql, SRC_LOCATION)) \
     goto error; \
 } while(false)
 
@@ -119,7 +119,7 @@ ImageDao::~ImageDao()
   m_writeThread.quit();
   m_writeThread.wait();
   m_conn->close();
-  qInfo(__FUNCTION__);
+  qInfo(SRC_LOCATION);
 }
 
 bool ImageDao::tableExists(const QString &table)
@@ -146,7 +146,7 @@ void ImageDao::metaPut(const QString &key, const QVariant &val)
     dsw << val;
     ps.bind(3, data);
   }
-  ps.step(__FUNCTION__);
+  ps.step(SRC_LOCATION);
 }
 
 QVariant ImageDao::metaGet(const QString &key)
@@ -155,7 +155,7 @@ QVariant ImageDao::metaGet(const QString &key)
 
   SQLitePreparedStatement ps(m_conn, "SELECT type, value FROM meta WHERE key = ?1");
   ps.bind(1, key);
-  if(ps.step(__FUNCTION__)) {
+  if(ps.step(SRC_LOCATION)) {
     const char *typeName = (const char *)sqlite3_column_text(ps.m_stmt, 0);
     QVariant::Type type = QVariant::nameToType(typeName);
     if(type == QVariant::Int) {
@@ -225,7 +225,7 @@ QString ImageDao::hashById(qint64 id)
 {
   SQLitePreparedStatement ps(m_conn, "SELECT hash FROM store WHERE id = ?1");
   ps.bind(1, id);
-  ps.step(__FUNCTION__);
+  ps.step(SRC_LOCATION);
   return ps.resultString(0);
 }
 
@@ -285,7 +285,7 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
 
   m_ps_all.bind(1, (qint64)includeDeleted);
 
-  while(m_ps_all.step(__FUNCTION__)) {
+  while(m_ps_all.step(SRC_LOCATION)) {
     ImageRef *ir = new ImageRef();
     ir->m_fileId = m_ps_all.resultInteger(0);
     ir->m_tags = QSet<QString>::fromList(m_ps_all.resultString(1).split(' ', QString::SkipEmptyParts));
@@ -295,7 +295,7 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
     result.append(ir);
   }
 
-  qDebug() << __FUNCTION__ << timer.elapsed() << "ms";
+  qDebug() << SRC_LOCATION << timer.elapsed() << "ms";
 
   return result;
 }
@@ -320,7 +320,7 @@ ImageRef *ImageDao::findHash(const QString &hash)
   SQLitePreparedStatement m_ps_idByHash(m_conn, "SELECT id FROM store WHERE hash = ?1");
 
   m_ps_idByHash.bind(1, hash);
-  if(!m_ps_idByHash.step(__FUNCTION__)) {
+  if(!m_ps_idByHash.step(SRC_LOCATION)) {
     m_ps_idByHash.reset();
     return nullptr;
   }
@@ -341,11 +341,11 @@ ImageRef *ImageDao::findHash(const QString &hash)
 void ImageDao::purgeDeletedImages()
 {
   QMutexLocker writeLock(m_conn->writeLock());
-  m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
-  m_conn->exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
-  m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", __FUNCTION__);
-  m_conn->exec("DELETE FROM image WHERE deleted = 1", __FUNCTION__);
-  m_conn->exec("END TRANSACTION", __FUNCTION__);
+  m_conn->exec("BEGIN TRANSACTION", SRC_LOCATION);
+  m_conn->exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
+  m_conn->exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
+  m_conn->exec("DELETE FROM image WHERE deleted = 1", SRC_LOCATION);
+  m_conn->exec("END TRANSACTION", SRC_LOCATION);
   qInfo("Purged %d images from the database", sqlite3_changes(m_conn->m_db));
 }
 
@@ -412,7 +412,7 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
       }
     }
 
-    qInfo() << __FUNCTION__ << "Rendering image:" << filename;
+    qInfo() << SRC_LOCATION << "Rendering image:" << filename;
 
     imageDataRelease(idc);
   }
@@ -433,7 +433,7 @@ void ImageDao::imageDataAcquire(ImageDao::ImageDataContext &idc, qint64 id)
   idc.conn = m_connPool.open();
   idc.ps.init(idc.conn->m_db, "SELECT image FROM store WHERE id = ?1");
   idc.ps.bind(1, id);
-  idc.ps.step(__FUNCTION__);
+  idc.ps.step(SRC_LOCATION);
 
   const char *data = (const char *)sqlite3_column_blob(idc.ps.m_stmt, 0);
   int bytes = sqlite3_column_bytes(idc.ps.m_stmt, 0);
@@ -502,7 +502,7 @@ QStringList ImageRef::tags()
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
     m_conn->writeLock()->lock();
-    m_conn->exec("BEGIN TRANSACTION", __FUNCTION__);
+    m_conn->exec("BEGIN TRANSACTION", SRC_LOCATION);
     m_inTransaction = true;
     QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
   }
@@ -520,7 +520,7 @@ ImageDaoDeferredWriter::~ImageDaoDeferredWriter()
 
 void ImageDaoDeferredWriter::endWrite() {
   if(m_inTransaction) {
-    m_conn->exec("END TRANSACTION", __FUNCTION__);
+    m_conn->exec("END TRANSACTION", SRC_LOCATION);
     m_inTransaction = false;
     m_conn->writeLock()->unlock();
   }
@@ -534,7 +534,7 @@ void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString
     if(auto iref = qobject_cast<ImageRef *>(qobj)) {
       ps.bind(1, iref->m_fileId);
       ps.bind(2, tag);
-      ps.exec(__FUNCTION__);
+      ps.exec(SRC_LOCATION);
     }
   }
 }
@@ -547,7 +547,7 @@ void ImageDaoDeferredWriter::removeTag(const QList<QObject *> &irefs, const QStr
     if(auto iref = qobject_cast<ImageRef *>(qobj)) {
       ps.bind(1, iref->m_fileId);
       ps.bind(2, tag);
-      ps.exec(__FUNCTION__);
+      ps.exec(SRC_LOCATION);
     }
   }
 }
@@ -560,7 +560,7 @@ void ImageDaoDeferredWriter::updateDeleted(const QList<QObject *> &irefs, bool d
     if(auto iref = qobject_cast<ImageRef *>(ptr)) {
       ps.bind(1, (qint64)deleted);
       ps.bind(2, iref->m_fileId);
-      ps.exec(__FUNCTION__);
+      ps.exec(SRC_LOCATION);
     }
   }
 }
@@ -581,7 +581,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   QString hash = hashBytes.toHex();
   ps.bind(1, hash);
   ps.bind(2, data);
-  ps.exec(__FUNCTION__);
+  ps.exec(SRC_LOCATION);
 
   if(sqlite3_changes(m_conn->m_db) == 0) {
     qWarning("Duplicate image not inserted");
@@ -592,7 +592,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   qInfo("Inserted image with ID %lld", last_id);
 
   ps_image.bind(1, last_id);
-  ps_image.exec(__FUNCTION__);
+  ps_image.exec(SRC_LOCATION);
 
   endWrite();
 

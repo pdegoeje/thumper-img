@@ -133,11 +133,11 @@ SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
 SQLiteConnectionPool::~SQLiteConnectionPool() {
   for(auto conn : m_pool) {
     if(conn->m_opened) {
-      qDebug() << __FUNCTION__ << "SQLiteConnection still open";
+      qDebug() << SRC_LOCATION << "SQLiteConnection still open";
     }
     delete conn;
   }
-  qDebug() << __FUNCTION__ << "All connections closed";
+  qDebug() << SRC_LOCATION << "All connections closed";
 }
 
 SQLiteConnection *SQLiteConnectionPool::open() {

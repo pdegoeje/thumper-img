@@ -11,6 +11,10 @@ struct sqlite3_stmt;
 
 struct SQLiteConnection;
 
+#define DBG_STRINGIFY(x) #x
+#define DBG_TOSTRING(x) DBG_STRINGIFY(x)
+#define SRC_LOCATION __FUNCTION__ "#" DBG_TOSTRING(__LINE__)
+
 struct SQLitePreparedStatement {
   sqlite3_stmt *m_stmt = nullptr;
 
