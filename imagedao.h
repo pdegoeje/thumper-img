@@ -14,6 +14,7 @@
 #include <QSize>
 #include <QThread>
 #include <QTimer>
+#include <QReadWriteLock>
 
 class ImageDaoSyncPoint: public QObject {
   Q_OBJECT
@@ -56,6 +57,8 @@ class ImageDao : public QObject
   SQLiteConnection *m_conn;
 
   QThread m_writeThread;
+  QMap<quint64, ImageRef *> m_refMap;
+  QReadWriteLock m_refMapLock;
 public:
   struct ImageDataContext {
     QByteArray data;

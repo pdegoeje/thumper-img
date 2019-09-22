@@ -53,6 +53,16 @@ qint64 SQLitePreparedStatement::resultInteger(int index)
   return sqlite3_column_int64(m_stmt, index);
 }
 
+QByteArray SQLitePreparedStatement::resultBlobPointer(int index)
+{
+  const char *data = (const char *)sqlite3_column_blob(m_stmt, index);
+  if(data != nullptr) {
+    int bytes = sqlite3_column_bytes(m_stmt, index);
+    return QByteArray::fromRawData(data, bytes);
+  }
+  return {};
+}
+
 bool SQLitePreparedStatement::step(const char *debug_str)
 {
   int rval = sqlite3_step(m_stmt);

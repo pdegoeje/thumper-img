@@ -109,6 +109,12 @@ ImageDao::ImageDao(QObject *parent) :
     metaPut(QStringLiteral("version"), version = 5);
   }
 
+  if(version == 5) {
+    qInfo("Upgrading database format from 5 to 6");
+    EXEC("CREATE TABLE thumb320 (id INTEGER PRIMARY KEY, image BLOB)");
+
+    metaPut(QStringLiteral("version"), version = 6);
+  }
 error:
   return;
 }
@@ -277,6 +283,8 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
 
   m_ps_all.bind(1, (qint64)includeDeleted);
 
+  QWriteLocker refMapLocker(&m_refMapLock);
+
   while(m_ps_all.step(SRC_LOCATION)) {
     ImageRef *ir = new ImageRef();
     ir->m_fileId = m_ps_all.resultInteger(0);
@@ -284,6 +292,8 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
     ir->m_size = { (int)m_ps_all.resultInteger(2), (int)m_ps_all.resultInteger(3) };
     ir->m_phash = m_ps_all.resultInteger(4);
     ir->m_deleted = m_ps_all.resultInteger(5);
+
+    m_refMap.insert(ir->m_fileId, ir);
     result.append(ir);
   }
 
@@ -322,6 +332,8 @@ ImageRef *ImageDao::createImageRef(qint64 id)
   iref->m_phash = ps.resultInteger(2);
   iref->m_deleted = ps.resultInteger(3);
 
+  QWriteLocker refMapLocker(&m_refMapLock);
+  m_refMap.insert(iref->m_fileId, iref);
   return iref;
 }
 
@@ -436,9 +448,112 @@ void ImageDao::imageDataRelease(ImageDao::ImageDataContext &idc)
   m_connPool.close(idc.conn);
 }
 
+static bool greaterThan(const QSize &a, const QSize &b) {
+  return a.width() > b.width() && a.height() > b.height();
+}
+
+static bool greaterThanOrEqual(const QSize &a, const QSize &b) {
+  return a.width() >= b.width() && a.height() >= b.height();
+}
+
+
+static QSize scaleOverlap(const QSize &actualSize, const QSize &requestedSize) {
+  if(!requestedSize.isValid())
+    return actualSize;
+
+  float scalex = (float)requestedSize.width() / actualSize.width();
+  float scaley = (float)requestedSize.height() / actualSize.height();
+
+  if(scalex > scaley) {
+    return { requestedSize.width(), int(actualSize.height() * scalex) };
+  } else {
+    return { int(actualSize.width() * scaley), requestedSize.height() };
+  }
+}
+
 QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled)
 {
   QImage result;
+
+  if(*cancelled) {
+    return result;
+  }
+
+  QSize actualSize;
+  {
+    QReadLocker refMapLocker(&m_refMapLock);
+    ImageRef *iref = m_refMap.constFind(id).value();
+    Q_ASSERT(iref != nullptr);
+    actualSize = iref->m_size;
+  }
+
+  QSize thumbRequestSize = { 320, 320 };
+
+  bool downScale = greaterThan(actualSize, requestedSize);
+  bool useThumbnail = downScale && greaterThanOrEqual(thumbRequestSize, requestedSize);
+
+  if(useThumbnail) {
+    SQLiteConnection *conn = m_connPool.open();
+    {
+      SQLitePreparedStatement ps(conn, "SELECT image FROM thumb320 WHERE id = ?1");
+      ps.bind(1, id);
+      ps.step(SRC_LOCATION);
+
+      QByteArray thumbData = ps.resultBlobPointer(0);
+      if(thumbData.isNull()) {
+        ps.destroy();
+
+        qDebug() << "Generating thumbnail for" << id;
+
+        SQLitePreparedStatement ps_r(conn, "SELECT image FROM store WHERE id = ?1");
+        ps_r.bind(1, id);
+        ps_r.step(SRC_LOCATION);
+
+        QSize thumbScale = scaleOverlap(actualSize, thumbRequestSize);
+        qDebug() << "Thumb dimensions" << thumbScale;
+
+        QByteArray rawImageData = ps_r.resultBlobPointer(0);
+        if(!rawImageData.isNull()) {
+          QBuffer buffer(&rawImageData);
+          QImageReader imageReader(&buffer);
+          imageReader.setScaledSize(scaleOverlap(actualSize, thumbRequestSize));
+          imageReader.setBackgroundColor(Qt::darkGray);
+          QImage thumbNail = imageReader.read();
+          thumbNail.convertTo(QImage::Format_RGB32);
+
+          QBuffer outputBuffer;
+          thumbNail.save(&outputBuffer, "JPEG", 95);
+
+          qreal reduction = (qreal)outputBuffer.buffer().length() / rawImageData.length();
+          qDebug() << "Thumb size fraction" << reduction;
+
+          ps_r.destroy();
+
+          result = thumbNail.scaled(scaleOverlap(thumbNail.size(), requestedSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+
+          {
+            QMutexLocker lock(conn->writeLock());
+            conn->exec("BEGIN TRANSACTION");
+            SQLitePreparedStatement ps_w(conn, "INSERT INTO thumb320 (id, image) VALUES (?1, ?2)");
+            ps_w.bind(1, id);
+            ps_w.bind(2, outputBuffer.buffer());
+            ps_w.exec(SRC_LOCATION);
+            conn->exec("END TRANSACTION");
+          }
+        }
+      } else {
+        QBuffer buffer(&thumbData);
+        QImageReader imageReader(&buffer);
+        imageReader.setScaledSize(scaleOverlap(imageReader.size(), requestedSize));
+        result = imageReader.read();
+      }
+    }
+    conn->close();
+  }
+
+  if(!result.isNull()) {
+    return result;
+  }
 
   ImageDataContext idc;
   imageDataAcquire(idc, id);
@@ -448,21 +563,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     QImageReader reader(&buffer);
 
     if(requestedSize.isValid()) {
-      auto actualSize = reader.size();
-
-      float scalex = (float)requestedSize.width() / actualSize.width();
-      float scaley = (float)requestedSize.height() / actualSize.height();
-
-      QSize newSize;
-      if(scalex > scaley) {
-        newSize.setWidth(requestedSize.width());
-        newSize.setHeight(actualSize.height() * scalex);
-      } else {
-        newSize.setWidth(actualSize.width() * scaley);
-        newSize.setHeight(requestedSize.height());
-      }
-
-      reader.setScaledSize(newSize);
+      reader.setScaledSize(scaleOverlap(reader.size(), requestedSize));
     }
 
     result = reader.read();

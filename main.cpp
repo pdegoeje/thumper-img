@@ -11,22 +11,26 @@
 
 static void (*previousMessageHandler)(QtMsgType, const QMessageLogContext &, const QString &);
 static QFile *logFile;
+static QBasicMutex logMutex;
 
 static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
-  if(logFile == nullptr) {
-    logFile = new QFile("thumper.log");
-    if(!logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-      fprintf(stderr, "Failed to open logfile\n");
-    } else {
-      fprintf(stderr, "Log file: %s\n", qUtf8Printable(logFile->fileName()));
+  {
+    QMutexLocker lock(&logMutex);
+    if(logFile == nullptr) {
+      logFile = new QFile("thumper.log");
+      if(!logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        fprintf(stderr, "Failed to open logfile\n");
+      } else {
+        fprintf(stderr, "Log file: %s\n", qUtf8Printable(logFile->fileName()));
+      }
     }
-  }
 
-  QString output = QString::asprintf("%s %s (%s:%u, %s)\n",
-                                     qUtf8Printable(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss.zzz"))),
-                                     qUtf8Printable(msg), context.file, context.line, context.function);
-  logFile->write(output.toUtf8());
-  logFile->flush();
+    QString output = QString::asprintf("%s %s (%s:%u, %s)\n",
+                                       qUtf8Printable(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss.zzz"))),
+                                       qUtf8Printable(msg), context.file, context.line, context.function);
+    logFile->write(output.toUtf8());
+    logFile->flush();
+  }
 
   if(previousMessageHandler != nullptr) {
     previousMessageHandler(type, context, msg);
