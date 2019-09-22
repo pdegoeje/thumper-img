@@ -24,10 +24,10 @@
 ImageDao *ImageDao::m_instance;
 
 #define EXEC(sql) \
-{ \
+do { \
   if(!m_conn->exec(sql, __FUNCTION__)) \
     goto error; \
-}
+} while(false)
 
 ImageDao::ImageDao(QObject *parent) :
   QObject(parent),
@@ -51,9 +51,7 @@ ImageDao::ImageDao(QObject *parent) :
 
   EXEC("PRAGMA journal_mode = WAL");
 
-  bool createNewDatabase = !tableExists(QStringLiteral("store"));
-
-  if(createNewDatabase) {
+  if(!tableExists(QStringLiteral("store"))) {
     EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
     EXEC("CREATE TABLE tag (id INTEGER, tag TEXT, PRIMARY KEY (id, tag))");
   }
@@ -109,7 +107,6 @@ ImageDao::ImageDao(QObject *parent) :
 
     metaPut(QStringLiteral("version"), version = 5);
   }
-
 
 error:
   return;

@@ -37,6 +37,8 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
+unix: LIBS += -ldl
+
 HEADERS += \
     dct/fast-dct-lee.h \
     fileutils.h \
