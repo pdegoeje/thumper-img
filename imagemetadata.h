@@ -11,7 +11,7 @@ uint64_t perceptualHash(const QImage &image);
 uint64_t blockHash(const QImage &image);
 uint64_t differenceHash(const QImage &image);
 QImage autoCrop(const QImage &image, int threshold);
-bool writeMetaData(struct SQLiteConnection *m_conn, const QByteArray &data, quint64 id);
+bool updateImageMetaData(struct SQLiteConnection *m_conn, const QByteArray &data, quint64 id);
 
 class ImageProcessStatus : public QObject {
   Q_OBJECT

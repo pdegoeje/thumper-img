@@ -311,7 +311,8 @@ ImageRef *ImageDao::createImageRef(qint64 id)
 {
   SQLitePreparedStatement ps(m_conn, "SELECT width, height, phash, deleted FROM image WHERE id = ?1");
   ps.bind(1, id);
-  ps.step(SRC_LOCATION);
+  if(!ps.step(SRC_LOCATION))
+    return nullptr;
 
   ImageRef *iref = new ImageRef();
   iref->m_tags = QSet<QString>::fromList(tagsById(id));
@@ -584,7 +585,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
     ps.exec(SRC_LOCATION);
   }
 
-  writeMetaData(m_conn, data, last_id);
+  updateImageMetaData(m_conn, data, last_id);
 
   endWrite();
 
