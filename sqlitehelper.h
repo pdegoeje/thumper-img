@@ -68,7 +68,7 @@ struct SQLiteConnectionPool {
 
   QMutex *writeLock() {
     return &m_writeLock;
-  };
+  }
 
   SQLiteConnection *open();
   void close(SQLiteConnection *conn);
