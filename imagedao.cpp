@@ -466,9 +466,9 @@ static QSize scaleOverlap(const QSize &actualSize, const QSize &requestedSize) {
   float scaley = (float)requestedSize.height() / actualSize.height();
 
   if(scalex > scaley) {
-    return { requestedSize.width(), int(actualSize.height() * scalex) };
+    return { requestedSize.width(), int(actualSize.height() * scalex) / 2 * 2 };
   } else {
-    return { int(actualSize.width() * scaley), requestedSize.height() };
+    return { int(actualSize.width() * scaley) / 2 * 2, requestedSize.height() };
   }
 }
 
@@ -495,7 +495,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
   bool isRequestSmallerThanThumb = greaterThanOrEqual(thumbnailBaseSize, requestedSize);
   bool isCutoffSmallerThanActual = greaterThanOrEqual(actualSize, maximumImageSize);
 
-  if(isRequestSmallerThanThumb && isRequestSmallerThanThumb && isCutoffSmallerThanActual) {
+  if(isRequestSmallerThanActual && isRequestSmallerThanThumb && isCutoffSmallerThanActual) {
     SQLiteConnection *conn = m_connPool.open();
     {
       SQLitePreparedStatement ps(conn, "SELECT image FROM thumb320 WHERE id = ?1");

@@ -46,8 +46,8 @@ Popup {
       
       anchors.centerIn: parent
       
-      sourceSize.width: root.width - 40
-      sourceSize.height: root.height - 40
+      sourceSize.width: window.width - 40
+      sourceSize.height: window.height - 40
       
       opacity: (status == Image.Ready) ? 1 : 0
       

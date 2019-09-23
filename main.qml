@@ -7,7 +7,7 @@ import QtQml 2.12
 import thumper 1.0
 
 ApplicationWindow {
-  id: root
+  id: window
   visible: true
   width: 1280
   height: 720
@@ -35,14 +35,16 @@ ApplicationWindow {
     'renderFilenameToClipboard',
     'duplicateSearchDistance',
     'showHiddenImages',
+    'spacing',
+    'zoomOnHover'
   ]
 
   function loadSettings() {
     var settings = JSON.parse(fileUtils.load("thumper.json"))
     if(settings) {
       for(var k in settings) {
-        if(k in root) {
-          root[k] = settings[k]
+        if(k in window) {
+          window[k] = settings[k]
         }
       }
     }
@@ -52,7 +54,7 @@ ApplicationWindow {
     var settings = { }
     for(var i in persistentProperties) {
       var k = persistentProperties[i]
-      settings[k] = root[k]
+      settings[k] = window[k]
     }
 
     fileUtils.save("thumper.json", JSON.stringify(settings, null, 2))
@@ -71,8 +73,13 @@ ApplicationWindow {
   property string pathPrefix: "./"
   property int imagesPerRow: 6
   property var imagesPerRowModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
-  property int imageWidth: (list.width - spacing) / imagesPerRow - spacing
-  property int imageHeight: imageWidth * aspectRatio
+
+  property int imageCellWidth: (list.width - spacing) / imagesPerRow
+  property int imageCellHeight: (imageCellWidth - spacing) * aspectRatio + spacing
+
+  property int imageWidth: Math.floor((imageCellWidth - spacing) / 2) * 2
+  property int imageHeight: Math.floor((imageCellHeight - spacing) / 2) * 2
+
   property int spacing: 8
   property int renderSize: -1
   property int cellFillMode: Image.PreserveAspectCrop
@@ -85,6 +92,7 @@ ApplicationWindow {
   property bool gridShowImageIds: false
   property int duplicateSearchDistance: 4
   property bool showHiddenImages: false
+  property bool zoomOnHover: false
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -371,14 +379,15 @@ ApplicationWindow {
   Component {
     id: highlight
     Rectangle {
-      width: list.cellWidth - spacing + border.width * 2
-      height: list.cellHeight - spacing + border.width * 2
+      width: imageWidth //list.cellWidth - spacing + border.width * 2
+      height: imageHeight //list.cellHeight - spacing + border.width * 2
       color: 'transparent'
       border.color: Material.highlightedButtonColor
       opacity: list.activeFocus ? 1 : 0.5
       border.width: 2
-      x: list.currentItem ? list.currentItem.x + list.pad - border.width : 0
-      y: list.currentItem ? list.currentItem.y + list.pad - border.width : 0
+      x: list.currentItem ? list.currentItem.x + list.pad : 0
+      y: list.currentItem ? list.currentItem.y + list.pad : 0
+      z: 2
     }
   }
 
@@ -392,14 +401,15 @@ ApplicationWindow {
 
     model: viewModel
     property int pad: spacing / 2
+    property int lastRowIndex: Math.floor((viewModel.count - 1) / imagesPerRow) * imagesPerRow
 
     topMargin: pad
     bottomMargin: pad
     leftMargin: pad
     rightMargin: pad
 
-    cellWidth: imageWidth + spacing
-    cellHeight: imageHeight + spacing
+    cellWidth: imageCellWidth // imageWidth + spacing
+    cellHeight: imageCellHeight //imageHeight + spacing
 
     highlight: highlight
     highlightFollowsCurrentItem: false
@@ -455,52 +465,66 @@ ApplicationWindow {
       id: delegateItem
       width: list.cellWidth
       height: list.cellHeight
+      z: view.isZoomed ? 1 : 0
 
       property ImageRef image: ref
+      property int column: index % imagesPerRow
 
-      BorderImage {
-        source: "selection_box.png"
-        visible: delegateItem.image.selected
-        anchors.margins: list.pad - 2
-        anchors.fill: parent
-        border.left: 3; border.top: 3
-        border.right: 3; border.bottom: 3
-        horizontalTileMode: BorderImage.Repeat
-        verticalTileMode: BorderImage.Repeat
-        smooth: false
-        cache: true
+      HoverHandler {
+        id: hoverHandler
+        enabled: zoomOnHover
       }
 
       Image {
-        x: list.pad
-        y: list.pad
+        x: {
+          if(delegateItem.column == 0) {
+            return list.pad
+          } else if(delegateItem.column == imagesPerRow - 1) {
+            return list.pad + imageWidth - width
+          } else {
+            return list.pad + (imageWidth - width) / 2;
+          }
+        }
+        y: {
+          if(index < imagesPerRow) {
+            return list.pad
+          } else if(index >= list.lastRowIndex) {
+            return list.pad + imageHeight - height
+          } else {
+            return list.pad + (imageHeight - height) / 2;
+          }
+        }
 
         id: view
-        height: imageHeight
-        width: imageWidth
+
+        property int halfWidth: (hoverHandler.hovered ? implicitWidth : imageWidth) / 2
+        property int halfHeight: (hoverHandler.hovered ? implicitHeight : imageHeight) / 2
+        property bool isZoomed: height > imageHeight || width > imageWidth
+
+        width: halfWidth * 2
+        height: halfHeight * 2
         fillMode: cellFillMode
         asynchronous: true
         cache: false
         mipmap: false
         smooth: true
-        sourceSize.height: height
-        sourceSize.width: width
+        sourceSize.height: imageHeight < 128 ? 128 : imageHeight
+        sourceSize.width: imageWidth< 128 ? 128 : imageWidth
         source: "image://thumper/" + delegateItem.image.fileId
         opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
-        Behavior on opacity {
-          NumberAnimation { duration: 100 }
+
+        Behavior on halfWidth {
+          SmoothedAnimation { duration: 100; easing.type: Easing.InOutCubic }
         }
 
-        Timer {
-          repeat: true
-          interval: 1000
-          running: true
-          onTriggered: {
-            if(view.status != Image.Ready) {
-              console.log("Image", delegateItem.image.fileId, "Status", view.status)
-            }
-          }
+        Behavior on halfHeight {
+          SmoothedAnimation { duration: 100; easing.type: Easing.InOutCubic }
         }
+
+        Behavior on opacity {
+          NumberAnimation { duration: 100;  }
+        }
+
 
         TapHandler {
           acceptedModifiers: Qt.ShiftModifier
@@ -549,6 +573,20 @@ ApplicationWindow {
             rebuildSelectionModel()
           }
         }
+
+        Rectangle {
+          visible: hoverHandler.hovered
+          anchors.fill: parent
+          anchors.margins: -spacing
+          border.color: '#FF303030'
+          border.width: spacing
+          color: 'transparent'
+        }
+
+        DottedBorder {
+          anchors.fill: parent
+          visible: delegateItem.image.selected
+        }
       }
 
       Rectangle {
@@ -565,7 +603,7 @@ ApplicationWindow {
         visible: gridShowImageIds
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        //anchors.bottomMargin: 4
+        anchors.bottomMargin: list.pad
 
         width: labelText.implicitWidth + 8
         height: labelText.implicitHeight + 4
@@ -579,8 +617,8 @@ ApplicationWindow {
 
           color: Material.accentColor
           text: "%1 %2x%3".arg(delegateItem.image.fileId)
-                            .arg(delegateItem.image.size.width)
-                            .arg(delegateItem.image.size.height)
+                          .arg(delegateItem.image.size.width)
+                          .arg(delegateItem.image.size.height)
         }
       }
     }
@@ -700,7 +738,7 @@ ApplicationWindow {
   Shortcut {
     sequence: StandardKey.FullScreen
     onActivated: {
-      root.visibility = (root.visibility == Window.FullScreen) ? Window.Windowed : Window.FullScreen
+      window.visibility = (window.visibility == Window.FullScreen) ? Window.Windowed : Window.FullScreen
     }
   }
 

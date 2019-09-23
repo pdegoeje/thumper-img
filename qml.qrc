@@ -11,5 +11,7 @@
         <file>baseline_drag_indicator_white_24dp.png</file>
         <file>baseline_save_alt_white_24dp.png</file>
         <file>selection_box.png</file>
+        <file>checkboard.png</file>
+        <file>DottedBorder.qml</file>
     </qresource>
 </RCC>

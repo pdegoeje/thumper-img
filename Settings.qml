@@ -22,20 +22,21 @@ Popup {
 
       id: tabBar
       TabButton {
-        text: "General"
+        text: "View"
       }
-
       TabButton {
         text: "Import"
       }
-
       TabButton {
         text: "Export"
       }
-
       TabButton {
         text: "Help"
       }
+      TabButton {
+        text: "Misc."
+      }
+
     }
 
     StackLayout {
@@ -44,11 +45,6 @@ Popup {
       Layout.fillWidth: true
       currentIndex: tabBar.currentIndex
       ColumnLayout {
-        Button {
-          text: "Open Image Database"
-          onClicked: fileUtils.openImageDatabase()
-        }
-
         RowLayout {
           Label {
             text: "Aspect ratio"
@@ -70,39 +66,26 @@ Popup {
           onClicked: gridShowImageIds = checked
         }
 
-        RowLayout {
-          Button {
-            id: fixMetaData
-            ImageProcessStatus {
-              id: statusUpdate
-              onUpdate: {
-                fixStatus.text = "Processed %1 images".arg((fractionComplete).toFixed(0))
-              }
-              onComplete: {
-                fixStatus.text = "Complete"
-              }
-            }
-
-            text: "Fix image metadata"
-            onClicked: ImageDao.fixImageMetaData(statusUpdate)
-          }
-          Label {
-            id: fixStatus
-          }
+        Switch {
+          text: "Show images marked for removal"
+          checked: showHiddenImages
+          onClicked: showHiddenImages = checked
         }
 
-        RowLayout {
-          Button {
-            text: "Find duplicates"
-            onClicked: {
-              var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)
-              setViewList(refList)
-            }
-          }
-          Label {
-            text: "Sloppyness %1".arg(duplicateSearchDistance)
-          }
+        Switch {
+          text: "Zoom when hovering over images"
+          checked: zoomOnHover
+          onClicked: zoomOnHover = checked
+        }
 
+        Button {
+          text: "Find duplicates"
+          onClicked: {
+            var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)
+            setViewList(refList)
+          }
+        }
+        RowLayout {
           Slider {
             id: maxDistance
             from: 0
@@ -111,18 +94,22 @@ Popup {
             stepSize: 1
             onMoved: duplicateSearchDistance = value
           }
+          Label {
+            text: "Match accuracy: %1".arg(duplicateSearchDistance)
+          }
         }
 
-        Switch {
-          text: "Show images marked for removal"
-          checked: showHiddenImages
-          onClicked: showHiddenImages = checked
-        }
-
-        Button {
-          text: "Delete images marked for removal"
-          onClicked: {
-            ImageDao.purgeDeletedImages()
+        RowLayout {
+          Slider {
+            id: spacingSlider
+            from: 0
+            to: 16
+            value: window.spacing
+            stepSize: 1
+            onMoved: window.spacing = value
+          }
+          Label {
+            text: "Space between images: %1".arg(window.spacing)
           }
         }
       }
@@ -199,6 +186,41 @@ Popup {
               "<li>Delete: Mark selection for removal</li>" +
               "<li>Insert: Keep selection</li>" +
               "</ul>"
+        }
+      }
+
+      ColumnLayout {
+        Button {
+          text: "Open Image Database"
+          onClicked: fileUtils.openImageDatabase()
+        }
+
+        RowLayout {
+          Button {
+            id: fixMetaData
+            ImageProcessStatus {
+              id: statusUpdate
+              onUpdate: {
+                fixStatus.text = "Processed %1 images".arg((fractionComplete).toFixed(0))
+              }
+              onComplete: {
+                fixStatus.text = "Complete"
+              }
+            }
+
+            text: "Fix image metadata"
+            onClicked: ImageDao.fixImageMetaData(statusUpdate)
+          }
+          Label {
+            id: fixStatus
+          }
+        }
+
+        Button {
+          text: "Delete images marked for removal"
+          onClicked: {
+            ImageDao.purgeDeletedImages()
+          }
         }
       }
     }
