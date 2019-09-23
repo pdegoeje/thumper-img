@@ -11,10 +11,11 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.12.0"
+  title: "Thumper 1.13.0"
 
   FileUtils {
     id: fileUtils
+    onImageDatabaseSelected: console.log("fileselected: ", file)
   }
 
   ImageDaoSyncPoint {
@@ -478,15 +479,27 @@ ApplicationWindow {
         height: imageHeight
         width: imageWidth
         fillMode: cellFillMode
+        asynchronous: true
         cache: false
         mipmap: false
         smooth: true
-        source: "image://thumper/" + delegateItem.image.fileId
         sourceSize.height: height
         sourceSize.width: width
+        source: "image://thumper/" + delegateItem.image.fileId
         opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
         Behavior on opacity {
           NumberAnimation { duration: 100 }
+        }
+
+        Timer {
+          repeat: true
+          interval: 1000
+          running: true
+          onTriggered: {
+            if(view.status != Image.Ready) {
+              console.log("Image", delegateItem.image.fileId, "Status", view.status)
+            }
+          }
         }
 
         TapHandler {

@@ -1,11 +1,20 @@
 #include "fileutils.h"
 
+#include <QQuickWindow>
 #include <QTextStream>
 #include <QFile>
 #include <QDebug>
+#include <QFileDialog>
 
 FileUtils::FileUtils(QObject *parent) : QObject(parent)
 {
+  connect(&m_fileDialog, &QFileDialog::fileSelected, this, &FileUtils::imageDatabaseSelected);
+  m_fileDialog.setNameFilter(QString("Image Database (*.imgdb)"));
+  m_fileDialog.setWindowTitle(QStringLiteral("Open Image Database"));
+  m_fileDialog.setFileMode(QFileDialog::AnyFile);
+  m_fileDialog.setAcceptMode(QFileDialog::AcceptOpen);
+  m_fileDialog.setOption(QFileDialog::DontConfirmOverwrite);
+  m_fileDialog.setDefaultSuffix(QStringLiteral("imgdb"));
 }
 
 void FileUtils::save(const QString &path, const QString &data)
@@ -30,4 +39,9 @@ QString FileUtils::load(const QString &path)
 
   return QString::fromUtf8(file.readAll());
   file.close();
+}
+
+void FileUtils::openImageDatabase()
+{
+  m_fileDialog.open();
 }

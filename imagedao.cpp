@@ -275,24 +275,24 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
 
   QList<QObject *> result;
 
-  SQLitePreparedStatement m_ps_all(m_conn,
+  SQLitePreparedStatement ps(m_conn,
     "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted "
     "FROM image LEFT JOIN tag ON (tag.id = image.id) "
     "WHERE image.deleted IS NULL OR image.deleted <= ?1"
     "GROUP BY image.id "
     "ORDER BY date ASC");
 
-  m_ps_all.bind(1, (qint64)includeDeleted);
+  ps.bind(1, (qint64)includeDeleted);
 
   QWriteLocker refMapLocker(&m_refMapLock);
 
-  while(m_ps_all.step(SRC_LOCATION)) {
+  while(ps.step(SRC_LOCATION)) {
     ImageRef *ir = new ImageRef();
-    ir->m_fileId = m_ps_all.resultInteger(0);
-    ir->m_tags = QSet<QString>::fromList(m_ps_all.resultString(1).split(' ', QString::SkipEmptyParts));
-    ir->m_size = { (int)m_ps_all.resultInteger(2), (int)m_ps_all.resultInteger(3) };
-    ir->m_phash = m_ps_all.resultInteger(4);
-    ir->m_deleted = m_ps_all.resultInteger(5);
+    ir->m_fileId = ps.resultInteger(0);
+    ir->m_tags = QSet<QString>::fromList(ps.resultString(1).split(' ', QString::SkipEmptyParts));
+    ir->m_size = { (int)ps.resultInteger(2), (int)ps.resultInteger(3) };
+    ir->m_phash = ps.resultInteger(4);
+    ir->m_deleted = ps.resultInteger(5);
 
     m_refMap.insert(ir->m_fileId, ir);
     result.append(ir);

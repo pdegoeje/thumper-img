@@ -2,8 +2,8 @@
 #define THUMPERIMAGEPROVIDER_H
 
 #include <QQuickImageProvider>
+#include <QObject>
 #include <QThreadPool>
-#include <QCache>
 #include <QMutex>
 
 class AsyncImageResponse : public QQuickImageResponse, public QRunnable

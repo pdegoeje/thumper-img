@@ -22,7 +22,7 @@ Popup {
 
       id: tabBar
       TabButton {
-        text: "View"
+        text: "General"
       }
 
       TabButton {
@@ -44,6 +44,11 @@ Popup {
       Layout.fillWidth: true
       currentIndex: tabBar.currentIndex
       ColumnLayout {
+        Button {
+          text: "Open Image Database"
+          onClicked: fileUtils.openImageDatabase()
+        }
+
         RowLayout {
           Label {
             text: "Aspect ratio"

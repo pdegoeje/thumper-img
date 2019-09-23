@@ -5,6 +5,7 @@
 #include "taglist.h"
 #include "fileutils.h"
 
+#include <QApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QFile>
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
 
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
-  QGuiApplication app(argc, argv);
+  QApplication app(argc, argv);
 
   qmlRegisterType<ImageProcessStatus>("thumper", 1, 0, "ImageProcessStatus");
   qmlRegisterType<ImageRef>("thumper", 1, 0, "ImageRef");
