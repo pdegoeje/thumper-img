@@ -625,6 +625,7 @@ ApplicationWindow {
 
         wrapMode: Text.Wrap
         textFormat: Text.PlainText
+        elide: Text.ElideRight
 
         font.pixelSize: 18
 
@@ -633,24 +634,6 @@ ApplicationWindow {
         style: Text.Outline
         styleColor: '#FF000000'
       }
-
-        /*
-      Rectangle {
-
-
-//        anchors.fill: parent
-//        anchors.margins: 10
-        //anchors.horizontalCenter: parent.horizontalCenter
-        //anchors.bottom: parent.bottom
-        //anchors.bottomMargin: list.pad
-
-        width: labelText.implicitWidth + 8
-        height: labelText.implicitHeight + 4
-
-        color: '#80000000'
-
-
-      }*/
     }
   }
 

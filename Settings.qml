@@ -110,10 +110,12 @@ Popup {
 
         RowLayout {
           TextArea {
-            Layout.preferredWidth: 200
+            Layout.minimumWidth: 200
+            Layout.minimumHeight: implicitHeight
             selectByMouse: true
             Layout.fillHeight: true
-            textFormat: Text.PlainText
+            //textFormat: Text.PlainText
+            //wrapMode: TextEdit.Wrap
             text: imageOverlayFormat
             onTextChanged: imageOverlayFormat = text
           }

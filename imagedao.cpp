@@ -639,7 +639,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
   imageDataAcquire(idc, id);
 
   if(!(*cancelled)) {
-    qDebug() << "Load raw image" << iref->m_fileId << thumbSize << requestedSize << actualSize;
+    //qDebug() << "Load raw image" << iref->m_fileId << thumbSize << requestedSize << actualSize;
 
     QBuffer buffer(&idc.data);
     QImageReader reader(&buffer);
