@@ -38,6 +38,7 @@ ApplicationWindow {
     'spacing',
     'zoomOnHover',
     'imageSourceMinSize',
+    'imageOverlayFormat',
   ]
 
   function loadSettings() {
@@ -99,6 +100,7 @@ ApplicationWindow {
   property int duplicateSearchDistance: 4
   property bool showHiddenImages: false
   property bool zoomOnHover: false
+  property string imageOverlayFormat: "$id$\n$width$x$height$ $size$KB $format$\n$tags$"
 
   property var viewIdToIndexMap: ({})
   ListModel {
@@ -482,6 +484,13 @@ ApplicationWindow {
         enabled: zoomOnHover
       }
 
+      Binding {
+        target: image
+        when: gridShowImageIds
+        property: "overlayFormat"
+        value: imageOverlayFormat
+      }
+
       Image {
         x: {
           if(delegateItem.column == 0) {
@@ -597,8 +606,9 @@ ApplicationWindow {
       }
 
       Rectangle {
-        x: 10
-        y: 10
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 10
         visible: delegateItem.image.deleted
         radius: 5
         width: 10
@@ -606,28 +616,41 @@ ApplicationWindow {
         color: 'red'
       }
 
-      Rectangle {
+      Text {
+        anchors.fill: parent
+        anchors.margins: 10
+
         visible: gridShowImageIds
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: list.pad
+        id: labelText
+
+        wrapMode: Text.Wrap
+        textFormat: Text.PlainText
+
+        font.pixelSize: 18
+
+        color: Material.accentColor
+        text: delegateItem.image.overlayString
+        style: Text.Outline
+        styleColor: '#FF000000'
+      }
+
+        /*
+      Rectangle {
+
+
+//        anchors.fill: parent
+//        anchors.margins: 10
+        //anchors.horizontalCenter: parent.horizontalCenter
+        //anchors.bottom: parent.bottom
+        //anchors.bottomMargin: list.pad
 
         width: labelText.implicitWidth + 8
         height: labelText.implicitHeight + 4
 
         color: '#80000000'
 
-        Text {
-          x: 4
-          y: 2
-          id: labelText
 
-          color: Material.accentColor
-          text: "%1 %2x%3".arg(delegateItem.image.fileId)
-                          .arg(delegateItem.image.size.width)
-                          .arg(delegateItem.image.size.height)
-        }
-      }
+      }*/
     }
   }
 

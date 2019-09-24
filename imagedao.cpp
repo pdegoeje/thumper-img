@@ -664,11 +664,6 @@ ImageDao *ImageDao::instance()
   return m_instance;
 }
 
-QStringList ImageRef::tags()
-{
-  return m_tags.toList();
-}
-
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
     m_conn->writeLock()->lock();

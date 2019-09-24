@@ -17,9 +17,10 @@ class ImageRef : public QObject {
   Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
   Q_PROPERTY(QString format MEMBER m_format CONSTANT)
   Q_PROPERTY(qint64 fileSize MEMBER m_fileSize CONSTANT)
-
+  Q_PROPERTY(QString overlayFormat MEMBER m_overlayFormat NOTIFY overlayFormatChanged)
+  Q_PROPERTY(QString overlayString READ overlayString NOTIFY overlayStringChanged STORED false)
 public:
-  ImageRef(QObject *parent = nullptr) : QObject(parent) { }
+  ImageRef(QObject *parent = nullptr);
 
   qint64 m_fileId = 0;
   bool m_selected = false;
@@ -30,13 +31,17 @@ public:
   QString m_format;
   qint64 m_fileSize = 0;
   QImage::Format m_pixelFormat = QImage::Format_Invalid;
+  QString m_overlayFormat;
 
-  QStringList tags();
+  QStringList tags() const;
   QSize size() const { return m_size; }
+  QString overlayString() const;
 signals:
   void selectedChanged();
   void tagsChanged();
   void deletedChanged();
+  void overlayFormatChanged();
+  void overlayStringChanged();
 };
 
 #endif // IMAGEREF_H

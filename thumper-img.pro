@@ -17,6 +17,7 @@ SOURCES += \
     fileutils.cpp \
     imagedao.cpp \
     imagemetadata.cpp \
+    imageref.cpp \
     main.cpp \
     imageprocessor.cpp \
     sqlite3.c \

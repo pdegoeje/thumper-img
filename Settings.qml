@@ -60,14 +60,10 @@ Popup {
           }
         }
 
-        Switch {
-          checked: gridShowImageIds
-          text: "Show image IDs"
-          onClicked: gridShowImageIds = checked
-        }
+
 
         Switch {
-          text: "Show images marked for removal"
+          text: "Load images marked for removal"
           checked: showHiddenImages
           onClicked: showHiddenImages = checked
         }
@@ -92,27 +88,6 @@ Popup {
           }
         }
 
-        Button {
-          text: "Find duplicates"
-          onClicked: {
-            var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)
-            setViewList(refList)
-          }
-        }
-        RowLayout {
-          Slider {
-            id: maxDistance
-            from: 0
-            to: 20
-            value: duplicateSearchDistance
-            stepSize: 1
-            onMoved: duplicateSearchDistance = value
-          }
-          Label {
-            text: "Match accuracy: %1".arg(duplicateSearchDistance)
-          }
-        }
-
         RowLayout {
           Slider {
             id: spacingSlider
@@ -124,6 +99,36 @@ Popup {
           }
           Label {
             text: "Space between images: %1".arg(window.spacing)
+          }
+        }
+
+        Switch {
+          checked: gridShowImageIds
+          text: "Show overlay text"
+          onClicked: gridShowImageIds = checked
+        }
+
+        RowLayout {
+          TextArea {
+            Layout.preferredWidth: 200
+            selectByMouse: true
+            Layout.fillHeight: true
+            textFormat: Text.PlainText
+            text: imageOverlayFormat
+            onTextChanged: imageOverlayFormat = text
+          }
+
+          Label {
+            textFormat: Text.StyledText
+            text:
+                "<ul>" +
+                "<li>$id$: Image Id</li>" +
+                "<li>$width$: Width</li>" +
+                "<li>$height$: Height</li>" +
+                "<li>$size$: Filesize in KB</li>" +
+                "<li>$format$: File format</li>" +
+                "<li>$tags: Tag list</li>" +
+                "</ul>"
           }
         }
       }
@@ -207,6 +212,27 @@ Popup {
         Button {
           text: "Open Image Database"
           onClicked: fileUtils.openImageDatabase()
+        }
+
+        Button {
+          text: "Find duplicates"
+          onClicked: {
+            var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)
+            setViewList(refList)
+          }
+        }
+        RowLayout {
+          Slider {
+            id: maxDistance
+            from: 0
+            to: 20
+            value: duplicateSearchDistance
+            stepSize: 1
+            onMoved: duplicateSearchDistance = value
+          }
+          Label {
+            text: "Match accuracy: %1".arg(duplicateSearchDistance)
+          }
         }
 
         RowLayout {
