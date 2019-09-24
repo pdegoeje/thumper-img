@@ -11,7 +11,7 @@ Popup {
   modal: true
 
   width: 640
-  height: 480
+  height: 512
   padding: 0
 
   ColumnLayout {
@@ -77,6 +77,21 @@ Popup {
           checked: zoomOnHover
           onClicked: zoomOnHover = checked
         }
+
+
+        RowLayout {
+          Slider {
+            from: 2
+            to: 320
+            value: imageSourceMinSize
+            stepSize: 2
+            onMoved: imageSourceMinSize = value
+          }
+          Label {
+            text: "Hover zoom size: %1 pixels".arg(imageSourceMinSize)
+          }
+        }
+
 
         Button {
           text: "Find duplicates"

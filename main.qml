@@ -36,7 +36,8 @@ ApplicationWindow {
     'duplicateSearchDistance',
     'showHiddenImages',
     'spacing',
-    'zoomOnHover'
+    'zoomOnHover',
+    'imageSourceMinSize',
   ]
 
   function loadSettings() {
@@ -71,14 +72,19 @@ ApplicationWindow {
   }
 
   property string pathPrefix: "./"
+
   property int imagesPerRow: 6
   property var imagesPerRowModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
 
-  property int imageCellWidth: (list.width - spacing) / imagesPerRow
+  property int imageCellWidth: (window.width - spacing) / imagesPerRow
   property int imageCellHeight: (imageCellWidth - spacing) * aspectRatio + spacing
 
   property int imageWidth: Math.floor((imageCellWidth - spacing) / 2) * 2
   property int imageHeight: Math.floor((imageCellHeight - spacing) / 2) * 2
+
+  property int imageSourceMinSize: 32
+  property int imageSourceWidth: imageWidth < imageSourceMinSize ? imageSourceMinSize : imageWidth
+  property int imageSourceHeight: imageHeight < imageSourceMinSize ? imageSourceMinSize : imageHeight
 
   property int spacing: 8
   property int renderSize: -1
@@ -394,6 +400,7 @@ ApplicationWindow {
   GridView {
     activeFocusOnTab: true
     anchors.fill: parent
+    anchors.leftMargin: Math.floor((window.width - imageCellWidth * imagesPerRow) / 2)
 
     id: list
 
@@ -405,11 +412,11 @@ ApplicationWindow {
 
     topMargin: pad
     bottomMargin: pad
-    leftMargin: pad
+    leftMargin: 0//pad
     rightMargin: pad
 
-    cellWidth: imageCellWidth // imageWidth + spacing
-    cellHeight: imageCellHeight //imageHeight + spacing
+    cellWidth: imageCellWidth
+    cellHeight: imageCellHeight
 
     highlight: highlight
     highlightFollowsCurrentItem: false
@@ -508,8 +515,8 @@ ApplicationWindow {
         cache: false
         mipmap: false
         smooth: true
-        sourceSize.height: imageHeight < 128 ? 128 : imageHeight
-        sourceSize.width: imageWidth< 128 ? 128 : imageWidth
+        sourceSize.width: imageSourceWidth
+        sourceSize.height: imageSourceHeight
         source: "image://thumper/" + delegateItem.image.fileId
         opacity: ((selectionModel.length > 0 && !delegateItem.image.selected) ? 0.5 : 1)
 
