@@ -92,7 +92,6 @@ Popup {
           }
         }
 
-
         Button {
           text: "Find duplicates"
           onClicked: {

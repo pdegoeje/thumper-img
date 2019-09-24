@@ -186,6 +186,7 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   QBuffer buffer((QByteArray *)&imageData);
   QImageReader reader(&buffer);
 
+  QByteArray format = reader.format();
   QSize size = reader.size();
 
   reader.setBackgroundColor(Qt::darkGray);
@@ -195,21 +196,23 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   if(image.isNull())
     return false;
 
+  auto pixelFormat = image.format();
+
   image.convertTo(QImage::Format_Grayscale8);
-  //image.save(QStringLiteral("%1_crop_input.png").arg(id));
   image = autoCrop(image, 10);
-  //image.save(QStringLiteral("%1_crop_output.png").arg(id));
   image = image.scaled(32, 32, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
   image.convertTo(QImage::Format_Grayscale8);
-  //image.save(QStringLiteral("%1_phash_input.png").arg(id));
   uint64_t phash = perceptualHash(image);
-  //qDebug() << "id" << id << "phash" << phash;
 
-  SQLitePreparedStatement ps_update(conn, "UPDATE image SET width = ?1, height = ?2, phash = ?3 WHERE id = ?4");
+  SQLitePreparedStatement ps_update(conn,
+    "UPDATE image SET width = ?1, height = ?2, phash = ?3, format = ?4, filesize = ?5, pixelformat = ?6 WHERE id = ?7");
   ps_update.bind(1, size.width());
   ps_update.bind(2, size.height());
   ps_update.bind(3, phash);
-  ps_update.bind(4, imageId);
+  ps_update.bind(4, QString::fromLatin1(format));
+  ps_update.bind(5, imageData.size());
+  ps_update.bind(6, (qint64)pixelFormat);
+  ps_update.bind(7, imageId);
   ps_update.exec(SRC_LOCATION);
 
   return true;

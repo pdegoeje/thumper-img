@@ -5,6 +5,7 @@
 #include <QSize>
 #include <QSet>
 #include <QDebug>
+#include <QImage>
 
 class ImageRef : public QObject {
   Q_OBJECT
@@ -14,6 +15,8 @@ class ImageRef : public QObject {
   Q_PROPERTY(QStringList tags READ tags NOTIFY tagsChanged)
   Q_PROPERTY(QSize size READ size CONSTANT)
   Q_PROPERTY(bool deleted MEMBER m_deleted NOTIFY deletedChanged)
+  Q_PROPERTY(QString format MEMBER m_format CONSTANT)
+  Q_PROPERTY(qint64 fileSize MEMBER m_fileSize CONSTANT)
 
 public:
   ImageRef(QObject *parent = nullptr) : QObject(parent) { }
@@ -24,6 +27,9 @@ public:
   QSet<QString> m_tags;
   QSize m_size;
   qint64 m_phash = 0;
+  QString m_format;
+  qint64 m_fileSize = 0;
+  QImage::Format m_pixelFormat = QImage::Format_Invalid;
 
   QStringList tags();
   QSize size() const { return m_size; }

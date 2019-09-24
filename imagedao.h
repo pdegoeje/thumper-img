@@ -59,6 +59,7 @@ class ImageDao : public QObject
   QThread m_writeThread;
   QMap<quint64, ImageRef *> m_refMap;
   QReadWriteLock m_refMapLock;
+  QImage makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize);
 public:
   struct ImageDataContext {
     QByteArray data;
