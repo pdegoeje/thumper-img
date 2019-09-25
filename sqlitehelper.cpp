@@ -99,6 +99,11 @@ SQLitePreparedStatement::SQLitePreparedStatement(SQLiteConnection *conn, const c
   init(conn->m_db, sql);
 }
 
+SQLiteConnection::SQLiteConnection(SQLiteConnection &&other)
+{
+  operator =(std::move(other));
+}
+
 SQLiteConnection::~SQLiteConnection()
 {
   if(m_pool && m_db) {
@@ -130,14 +135,7 @@ QMutex *SQLiteConnection::writeLock() {
   return m_pool->writeLock();
 }
 
-SQLiteConnection::SQLiteConnection(SQLiteConnection &&other)
-{
-  this->m_db = other.m_db;
-  this->m_pool = other.m_pool;
 
-  other.m_db = nullptr;
-  other.m_pool = nullptr;
-}
 
 SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
   m_dbname = dbname;
