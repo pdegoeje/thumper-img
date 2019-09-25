@@ -219,25 +219,26 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
 
 void FixImageMetaDataTask::run() {
   ImageDao *dao = ImageDao::instance();
-  SQLiteConnection *conn = dao->connPool()->open();
 
-  QMutexLocker lock(conn->writeLock());
-  conn->exec("BEGIN", SRC_LOCATION);
-  conn->exec("DELETE FROM thumb40");
-  conn->exec("DELETE FROM thumb80");
-  conn->exec("DELETE FROM thumb160");
-  conn->exec("DELETE FROM thumb320");
-  conn->exec("DELETE FROM thumb640");
-  conn->exec("DELETE FROM thumb1280");
+  SQLiteConnection conn = dao->connPool()->open();
+  QMutexLocker lock(conn.writeLock());
+
+  conn.exec("BEGIN", SRC_LOCATION);
+  conn.exec("DELETE FROM thumb40");
+  conn.exec("DELETE FROM thumb80");
+  conn.exec("DELETE FROM thumb160");
+  conn.exec("DELETE FROM thumb320");
+  conn.exec("DELETE FROM thumb640");
+  conn.exec("DELETE FROM thumb1280");
   {
-    SQLitePreparedStatement ps(conn, "SELECT id FROM image ORDER BY id");
+    auto ps = conn.prepare("SELECT id FROM image ORDER BY id");
     qreal progress = 0.0;
     while(ps.step(SRC_LOCATION)) {
       qint64 id = ps.resultInteger(0);
 
       ImageDao::ImageDataContext idc;
       dao->imageDataAcquire(idc, id);
-      updateImageMetaData(conn, idc.data, id);
+      updateImageMetaData(&conn, idc.data, id);
       dao->imageDataRelease(idc);
 
       emit status->update({}, ++progress);
@@ -245,8 +246,7 @@ void FixImageMetaDataTask::run() {
     emit status->complete();
   }
 
-  conn->exec("COMMIT", SRC_LOCATION);
-  conn->close();
+  conn.exec("COMMIT", SRC_LOCATION);
 }
 
 static const uint64_t m1 = 0x5555555555555555; //binary: 0101...

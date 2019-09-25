@@ -28,10 +28,10 @@ class ImageDaoDeferredWriter : public QObject {
 
   void startWrite();
 
-  SQLiteConnection *m_conn = nullptr;
+  SQLiteConnection m_conn;
   bool m_inTransaction = false;
 public:
-  ImageDaoDeferredWriter(SQLiteConnection *conn, QObject *parent = nullptr);
+  ImageDaoDeferredWriter(SQLiteConnection &&conn, QObject *parent = nullptr);
   virtual ~ImageDaoDeferredWriter();
 private slots:
   void endWrite();
@@ -54,7 +54,7 @@ class ImageDao : public QObject
   static ImageDao *m_instance;
 
   SQLiteConnectionPool m_connPool;
-  SQLiteConnection *m_conn;
+  SQLiteConnection m_conn;
 
   QThread m_writeThread;
   QMap<quint64, ImageRef *> m_refMap;
@@ -63,7 +63,7 @@ class ImageDao : public QObject
 public:
   struct ImageDataContext {
     QByteArray data;
-    SQLiteConnection *conn;
+    SQLiteConnection conn;
     SQLitePreparedStatement ps;
   };
 

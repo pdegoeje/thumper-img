@@ -99,20 +99,20 @@ SQLitePreparedStatement::SQLitePreparedStatement(SQLiteConnection *conn, const c
   init(conn->m_db, sql);
 }
 
-
-SQLiteConnection::SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool) : m_pool(pool)
-{
-  if(sqlite3_open_v2(qUtf8Printable(dbname), &m_db, flags, nullptr) != SQLITE_OK) {
-    qWarning("Couldn't open SQLite database: %s", sqlite3_errmsg(m_db));
-  }
-
-  qInfo("Created new connection to %s", qUtf8Printable(dbname));
-}
-
 SQLiteConnection::~SQLiteConnection()
 {
-  sqlite3_close_v2(m_db);
-  qInfo("Closed database connection");
+  if(m_pool && m_db) {
+    m_pool->close(m_db);
+  }
+}
+
+void SQLiteConnection::operator =(SQLiteConnection &&other)
+{
+  this->m_db = other.m_db;
+  this->m_pool = other.m_pool;
+
+  other.m_db = nullptr;
+  other.m_pool = nullptr;
 }
 
 bool SQLiteConnection::exec(const char *sql, const char *debug_str)
@@ -130,44 +130,48 @@ QMutex *SQLiteConnection::writeLock() {
   return m_pool->writeLock();
 }
 
-void SQLiteConnection::close()
+SQLiteConnection::SQLiteConnection(SQLiteConnection &&other)
 {
-  m_pool->close(this);
+  this->m_db = other.m_db;
+  this->m_pool = other.m_pool;
+
+  other.m_db = nullptr;
+  other.m_pool = nullptr;
 }
 
 SQLiteConnectionPool::SQLiteConnectionPool(const QString &dbname, int flags) {
-  //m_maxPool = maxPool;
   m_dbname = dbname;
   m_flags = flags;
 }
 
 SQLiteConnectionPool::~SQLiteConnectionPool() {
   for(auto conn : m_pool) {
-    if(conn->m_opened) {
-      qDebug() << SRC_LOCATION << "SQLiteConnection still open";
-    }
-    delete conn;
+    sqlite3_close_v2(conn);
+    qInfo("Closed database connection");
   }
   qDebug() << SRC_LOCATION << "All connections closed";
 }
 
-SQLiteConnection *SQLiteConnectionPool::open() {
+SQLiteConnection SQLiteConnectionPool::open()
+{
   QMutexLocker lock(&m_mutex);
-  SQLiteConnection *result;
   if(m_pool.isEmpty()) {
-    result = new SQLiteConnection(m_dbname, m_flags, this);
+    sqlite3 *db = nullptr;
+    if(sqlite3_open_v2(qUtf8Printable(m_dbname), &db, m_flags, nullptr) != SQLITE_OK) {
+      qWarning("Couldn't open SQLite database: %s", sqlite3_errmsg(db));
+    } else {
+      qInfo("Created new connection to %s", qUtf8Printable(m_dbname));
+    }
+    return { db, this };
   } else {
-    result = m_pool.last();
+    auto db = m_pool.last();
     m_pool.removeLast();
+    return { db, this };
   }
-  result->m_opened = true;
-  return result;
 }
 
-void SQLiteConnectionPool::close(SQLiteConnection *conn) {
+void SQLiteConnectionPool::close(sqlite3 *conn) {
   QMutexLocker lock(&m_mutex);
-  if(conn->m_opened) {
-    conn->m_opened = false;
-    m_pool.append(conn);
-  }
+  m_pool.append(conn);
 }
+

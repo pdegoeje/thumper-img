@@ -46,13 +46,8 @@ struct SQLitePreparedStatement {
 struct SQLiteConnectionPool;
 
 struct SQLiteConnection {
-  sqlite3 *m_db;
-  SQLiteConnectionPool *m_pool;
-  bool m_opened = false;
-
-  SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool);
-  SQLiteConnection(const SQLiteConnection &) = delete;
-  ~SQLiteConnection();
+  sqlite3 *m_db = nullptr;
+  SQLiteConnectionPool *m_pool = nullptr;
 
   SQLitePreparedStatement prepare(const char *sql) {
     return { this, sql };
@@ -60,20 +55,18 @@ struct SQLiteConnection {
 
   bool exec(const char *sql, const char *debug_str = nullptr);
   QMutex *writeLock();
-  void close();
-};
 
-struct SQLiteConnHelper {
-  SQLiteConnection *conn;
-  SQLiteConnHelper(SQLiteConnection *conn) : conn(conn) { }
-  ~SQLiteConnHelper() { conn->close(); }
+  SQLiteConnection() { };
+  SQLiteConnection(sqlite3 *conn, SQLiteConnectionPool *pool) : m_db(conn), m_pool(pool) { }
+  SQLiteConnection(const SQLiteConnection &) = delete;
+  SQLiteConnection(SQLiteConnection &&other);
+  ~SQLiteConnection();
 
-  SQLiteConnection *operator -> () { return conn; }
-  operator SQLiteConnection *() { return conn; }
+  void operator = (SQLiteConnection &&other);
 };
 
 struct SQLiteConnectionPool {
-  QVector<SQLiteConnection *> m_pool;
+  QVector<sqlite3 *> m_pool;
   QString m_dbname;
   int m_flags;
   QMutex m_mutex;
@@ -86,9 +79,8 @@ struct SQLiteConnectionPool {
     return &m_writeLock;
   }
 
-  SQLiteConnection *open();
-  SQLiteConnHelper open2() { return { open() }; };
-  void close(SQLiteConnection *conn);
+  SQLiteConnection open();
+  void close(sqlite3 *conn);
 };
 
 #endif // SQLITEHELPER_H
