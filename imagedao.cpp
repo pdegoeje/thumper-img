@@ -599,56 +599,58 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     return result;
   }
 
-  QSize actualSize;
-  ImageRef *iref = nullptr;
-  {
-    QReadLocker refMapLocker(&m_refMapLock);
-    iref = m_refMap.constFind(id).value();
-    Q_ASSERT(iref != nullptr);
-    actualSize = iref->m_size;
-  }
-
-  int thumbSizeList[] = { 40, 80, 160, 320, 640, 1280 };
-  QSize thumbSize;
-  for(int tsize : thumbSizeList) {
-    QSize testSize(tsize, tsize);
-    if(greaterThanOrEqual(testSize, requestedSize)) {
-      thumbSize = testSize;
-      break;
+  if(requestedSize.isValid()) {
+    QSize actualSize;
+    ImageRef *iref = nullptr;
+    {
+      QReadLocker refMapLocker(&m_refMapLock);
+      iref = m_refMap.constFind(id).value();
+      Q_ASSERT(iref != nullptr);
+      actualSize = iref->m_size;
     }
-  }
 
-  if(thumbSize.isValid()) {
-    QSize nextUpSize = thumbSize * 2;
-    if(greaterThanOrEqual(actualSize, nextUpSize)) {
-      auto conn = m_connPool.open();
-      {
-        char sql[256];
-        snprintf(sql, sizeof sql, "SELECT image FROM thumb%d WHERE id = ?1", thumbSize.width());
-        auto ps = conn.prepare(sql);
-        ps.bind(1, id);
-        ps.step(SRC_LOCATION);
+    int thumbSizeList[] = { 40, 80, 160, 320, 640, 1280 };
+    QSize thumbSize;
+    for(int tsize : thumbSizeList) {
+      QSize testSize(tsize, tsize);
+      if(greaterThanOrEqual(testSize, requestedSize)) {
+        thumbSize = testSize;
+        break;
+      }
+    }
 
-        QByteArray thumbData = ps.resultBlobPointer(0);
-        if(thumbData.isNull()) {
-          ps.destroy();
-          //qDebug() << "Thumb does not exist" << iref->m_fileId << thumbSize << requestedSize << actualSize;
+    if(thumbSize.isValid()) {
+      QSize nextUpSize = thumbSize * 2;
+      if(greaterThanOrEqual(actualSize, nextUpSize)) {
+        auto conn = m_connPool.open();
+        {
+          char sql[256];
+          snprintf(sql, sizeof sql, "SELECT image FROM thumb%d WHERE id = ?1", thumbSize.width());
+          auto ps = conn.prepare(sql);
+          ps.bind(1, id);
+          ps.step(SRC_LOCATION);
 
-          QImage thumbNail = makeThumbnail(&conn, iref, thumbSize.width());
-          result = thumbNail.scaled(scaleOverlap(thumbNail.size(), requestedSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-        } else if(!*cancelled) {
-          //qDebug() << "Fastpath" << iref->m_fileId << thumbSize << requestedSize << actualSize;
-          QBuffer buffer(&thumbData);
-          QImageReader imageReader(&buffer);
-          imageReader.setScaledSize(scaleOverlap(imageReader.size(), requestedSize));
-          result = imageReader.read();
+          QByteArray thumbData = ps.resultBlobPointer(0);
+          if(thumbData.isNull()) {
+            ps.destroy();
+            //qDebug() << "Thumb does not exist" << iref->m_fileId << thumbSize << requestedSize << actualSize;
+
+            QImage thumbNail = makeThumbnail(&conn, iref, thumbSize.width());
+            result = thumbNail.scaled(scaleOverlap(thumbNail.size(), requestedSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+          } else if(!*cancelled) {
+            //qDebug() << "Fastpath" << iref->m_fileId << thumbSize << requestedSize << actualSize;
+            QBuffer buffer(&thumbData);
+            QImageReader imageReader(&buffer);
+            imageReader.setScaledSize(scaleOverlap(imageReader.size(), requestedSize));
+            result = imageReader.read();
+          }
         }
       }
     }
-  }
 
-  if(!result.isNull() || *cancelled) {
-    return result;
+    if(!result.isNull() || *cancelled) {
+      return result;
+    }
   }
 
   auto conn = m_connPool.open();
