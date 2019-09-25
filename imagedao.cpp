@@ -449,11 +449,8 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
   for(QObject *rptr : irefs) {
     ImageRef *ref = qobject_cast<ImageRef *>(rptr);
 
-    auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
-    ps.bind(1, ref->m_fileId);
-    ps.step(SRC_LOCATION);
-    QByteArray data = ps.resultBlobPointer(0);
-    QBuffer buffer(&data);
+    RawImageQuery riq(conn, ref->m_fileId);
+    QBuffer buffer(&riq.data);
     QImageReader reader(&buffer);
     QByteArray format = reader.format();
 
@@ -480,7 +477,7 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
       filename += QString::asprintf(".%s", format.constData());
       QFile file(filename);
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        file.write(data);
+        file.write(riq.data);
       }
     }
 
