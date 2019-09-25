@@ -39,7 +39,7 @@ struct SQLitePreparedStatement {
 
   SQLitePreparedStatement() { }
   SQLitePreparedStatement(const SQLitePreparedStatement &) = delete;
-  SQLitePreparedStatement(SQLiteConnection *conn, const char *sql);
+  SQLitePreparedStatement(sqlite3 *m_db, const char *sql);
   ~SQLitePreparedStatement() { destroy(); }
 };
 
@@ -50,7 +50,7 @@ struct SQLiteConnection {
   SQLiteConnectionPool *m_pool = nullptr;
 
   SQLitePreparedStatement prepare(const char *sql) {
-    return { this, sql };
+    return { m_db, sql };
   }
 
   bool exec(const char *sql, const char *debug_str = nullptr);

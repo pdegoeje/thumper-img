@@ -61,12 +61,6 @@ class ImageDao : public QObject
   QReadWriteLock m_refMapLock;
   QImage makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize);
 public:
-  struct ImageDataContext {
-    QByteArray data;
-    SQLiteConnection conn;
-    SQLitePreparedStatement ps;
-  };
-
   enum RenderFlags {
     PAD_TO_FIT = 0x01,
     FNAME_TO_CLIPBOARD = 0x2,
@@ -97,9 +91,6 @@ public:
 
   Q_INVOKABLE void purgeDeletedImages();
   Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
-
-  void imageDataAcquire(ImageDataContext &idc, qint64 id);
-  void imageDataRelease(ImageDataContext &idc);
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
   Q_INVOKABLE void fixImageMetaData(ImageProcessStatus *status);

@@ -236,11 +236,12 @@ void FixImageMetaDataTask::run() {
     while(ps.step(SRC_LOCATION)) {
       qint64 id = ps.resultInteger(0);
 
-      ImageDao::ImageDataContext idc;
-      dao->imageDataAcquire(idc, id);
-      updateImageMetaData(&conn, idc.data, id);
-      dao->imageDataRelease(idc);
+      auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
+      ps.bind(1, id);
+      ps.step(SRC_LOCATION);
+      QByteArray data = ps.resultBlobPointer(0);
 
+      updateImageMetaData(&conn, data, id);
       emit status->update({}, ++progress);
     }
     emit status->complete();

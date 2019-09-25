@@ -7,7 +7,7 @@
 void SQLitePreparedStatement::init(sqlite3 *db, const char *statement)
 {
   if(sqlite3_prepare_v2(db, statement, -1, &m_stmt, nullptr) != SQLITE_OK) {
-    qWarning("Failed to prepare statement: %s", sqlite3_errmsg(db));
+    qWarning("SQLite failed to prepare statement: %s", sqlite3_errmsg(db));
   }
 }
 
@@ -94,9 +94,9 @@ void SQLitePreparedStatement::destroy()
   m_stmt = nullptr;
 }
 
-SQLitePreparedStatement::SQLitePreparedStatement(SQLiteConnection *conn, const char *sql)
+SQLitePreparedStatement::SQLitePreparedStatement(sqlite3 *m_db, const char *sql)
 {
-  init(conn->m_db, sql);
+  init(m_db, sql);
 }
 
 SQLiteConnection::SQLiteConnection(SQLiteConnection &&other)

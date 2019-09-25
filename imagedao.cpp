@@ -361,14 +361,16 @@ ImageRef *ImageDao::createImageRef(qint64 id)
 
 void ImageDao::compressImages(const QList<QObject *> &irefs)
 {
+  auto conn = m_connPool.open();
   QMutexLocker writeLock(connPool()->writeLock());
 
   for(QObject *ptr : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(ptr)) {
-      ImageDataContext idc;
-      imageDataAcquire(idc, iref->m_fileId);
-
-      QBuffer buffer(&idc.data);
+      auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
+      ps.bind(1, iref->m_fileId);
+      ps.step(SRC_LOCATION);
+      QByteArray data = ps.resultBlobPointer(0);
+      QBuffer buffer(&data);
       QImageReader reader(&buffer);
       QByteArray format = reader.format();
       if(format != "jpeg") {
@@ -379,9 +381,9 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
         QByteArray data = outputBuffer.data();
         qDebug() << "New size" << data.length();
 
-        idc.conn.exec("BEGIN");
+        conn.exec("BEGIN");
         {
-          auto ps = idc.conn.prepare("UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
+          auto ps = conn.prepare("UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
 
           //SQLitePreparedStatement ps(idc.conn, );
           ps.bind(1, data);
@@ -391,13 +393,13 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
         }
 
         {
-          auto ps = idc.conn.prepare("UPDATE image SET filesize = ?1, format = ?2 WHERE id = ?3");
+          auto ps = conn.prepare("UPDATE image SET filesize = ?1, format = ?2 WHERE id = ?3");
           ps.bind(1, data.size());
           ps.bind(2, QStringLiteral("jpeg"));
           ps.bind(3, iref->m_fileId);
           ps.exec(SRC_LOCATION);
         }
-        idc.conn.exec("COMMIT");
+        conn.exec("COMMIT");
 
         iref->m_format = QStringLiteral("jpeg");
         iref->m_fileSize = data.size();
@@ -405,8 +407,6 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
         // force update
         emit iref->tagsChanged();
       }
-
-      imageDataRelease(idc);
     }
   }
 }
@@ -447,14 +447,16 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
   QSize reqSize(requestedSize, requestedSize);
 
   QStringList clipBoardData;
+  auto conn = m_connPool.open();
 
   for(QObject *rptr : irefs) {
     ImageRef *ref = qobject_cast<ImageRef *>(rptr);
 
-    ImageDataContext idc;
-    imageDataAcquire(idc, ref->m_fileId);
-
-    QBuffer buffer(&idc.data);
+    auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
+    ps.bind(1, ref->m_fileId);
+    ps.step(SRC_LOCATION);
+    QByteArray data = ps.resultBlobPointer(0);
+    QBuffer buffer(&data);
     QImageReader reader(&buffer);
     QByteArray format = reader.format();
 
@@ -481,13 +483,11 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
       filename += QString::asprintf(".%s", format.constData());
       QFile file(filename);
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        file.write(idc.data);
+        file.write(data);
       }
     }
 
     qInfo() << SRC_LOCATION << "Rendering image:" << filename;
-
-    imageDataRelease(idc);
   }
 
   if(flags & FNAME_TO_CLIPBOARD) {
@@ -499,20 +499,6 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
 void ImageDao::fixImageMetaData(ImageProcessStatus *status)
 {
   QThreadPool::globalInstance()->start(new FixImageMetaDataTask(status));
-}
-
-void ImageDao::imageDataAcquire(ImageDataContext &idc, qint64 id)
-{
-  idc.conn = m_connPool.open();
-  idc.ps.init(idc.conn.m_db, "SELECT image FROM store WHERE id = ?1");
-  idc.ps.bind(1, id);
-  idc.ps.step(SRC_LOCATION);
-  idc.data = idc.ps.resultBlobPointer(0);
-}
-
-void ImageDao::imageDataRelease(ImageDao::ImageDataContext &idc)
-{
-  idc.ps.destroy();
 }
 
 static bool greaterThan(const QSize &a, const QSize &b) {
@@ -547,7 +533,7 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
   {
     char sql[256];
     snprintf(sql, sizeof sql, "SELECT image FROM thumb%d WHERE id = ?1", thumbsize);
-    SQLitePreparedStatement ps(conn, sql);
+    auto ps = conn->prepare(sql);
     ps.bind(1, iref->m_fileId);
     ps.step(SRC_LOCATION);
     QByteArray thumbData = ps.resultBlobPointer(0);
@@ -677,13 +663,16 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     return result;
   }
 
-  ImageDataContext idc;
-  imageDataAcquire(idc, id);
+  auto conn = m_connPool.open();
+  auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
+  ps.bind(1, id);
+  ps.step(SRC_LOCATION);
+  QByteArray data = ps.resultBlobPointer(0);
 
   if(!(*cancelled)) {
     //qDebug() << "Load raw image" << iref->m_fileId << thumbSize << requestedSize << actualSize;
 
-    QBuffer buffer(&idc.data);
+    QBuffer buffer(&data);
     QImageReader reader(&buffer);
 
     if(requestedSize.isValid()) {
@@ -693,7 +682,6 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
     result = reader.read();
   }
 
-  imageDataRelease(idc);
   return result;
 }
 
