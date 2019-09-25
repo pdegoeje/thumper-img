@@ -51,6 +51,7 @@ struct SQLiteConnection {
   bool m_opened = false;
 
   SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool);
+  SQLiteConnection(const SQLiteConnection &) = delete;
   ~SQLiteConnection();
 
   SQLitePreparedStatement prepare(const char *sql) {
@@ -60,6 +61,15 @@ struct SQLiteConnection {
   bool exec(const char *sql, const char *debug_str = nullptr);
   QMutex *writeLock();
   void close();
+};
+
+struct SQLiteConnHelper {
+  SQLiteConnection *conn;
+  SQLiteConnHelper(SQLiteConnection *conn) : conn(conn) { }
+  ~SQLiteConnHelper() { conn->close(); }
+
+  SQLiteConnection *operator -> () { return conn; }
+  operator SQLiteConnection *() { return conn; }
 };
 
 struct SQLiteConnectionPool {
@@ -77,6 +87,7 @@ struct SQLiteConnectionPool {
   }
 
   SQLiteConnection *open();
+  SQLiteConnHelper open2() { return { open() }; };
   void close(SQLiteConnection *conn);
 };
 

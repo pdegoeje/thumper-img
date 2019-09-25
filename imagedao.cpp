@@ -650,7 +650,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
   if(thumbSize.isValid()) {
     QSize nextUpSize = thumbSize * 2;
     if(greaterThanOrEqual(actualSize, nextUpSize)) {
-      SQLiteConnection *conn = m_connPool.open();
+      auto conn = m_connPool.open2();
       {
         char sql[256];
         snprintf(sql, sizeof sql, "SELECT image FROM thumb%d WHERE id = ?1", thumbSize.width());
@@ -673,7 +673,6 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
           result = imageReader.read();
         }
       }
-      conn->close();
     }
   }
 

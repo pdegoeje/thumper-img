@@ -204,8 +204,7 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   image.convertTo(QImage::Format_Grayscale8);
   uint64_t phash = perceptualHash(image);
 
-  SQLitePreparedStatement ps_update(conn,
-    "UPDATE image SET width = ?1, height = ?2, phash = ?3, format = ?4, filesize = ?5, pixelformat = ?6 WHERE id = ?7");
+  auto ps_update = conn->prepare("UPDATE image SET width = ?1, height = ?2, phash = ?3, format = ?4, filesize = ?5, pixelformat = ?6 WHERE id = ?7");
   ps_update.bind(1, size.width());
   ps_update.bind(2, size.height());
   ps_update.bind(3, phash);
