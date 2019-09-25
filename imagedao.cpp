@@ -291,7 +291,7 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
   QList<QObject *> result;
 
   auto ps = m_conn.prepare(
-    "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted, format, filesize, pixelformat "
+    "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted, format, filesize, pixelformat, origin_url "
     "FROM image LEFT JOIN tag ON (tag.id = image.id) "
     "WHERE image.deleted IS NULL OR image.deleted <= ?1"
     "GROUP BY image.id "
@@ -311,6 +311,7 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
     ir->m_format = ps.resultString(6);
     ir->m_fileSize = ps.resultInteger(7);
     ir->m_pixelFormat = (QImage::Format)ps.resultInteger(8);
+    ir->m_url = ps.resultString(9);
 
     m_refMap.insert(ir->m_fileId, ir);
     result.append(ir);
@@ -338,7 +339,7 @@ QStringList ImageDao::tagsById(qint64 id)
 
 ImageRef *ImageDao::createImageRef(qint64 id)
 {
-  auto ps = m_conn.prepare("SELECT width, height, phash, deleted, format, filesize, pixelformat FROM image WHERE id = ?1");
+  auto ps = m_conn.prepare("SELECT width, height, phash, deleted, format, filesize, pixelformat, origin_url FROM image WHERE id = ?1");
   ps.bind(1, id);
   if(!ps.step(SRC_LOCATION))
     return nullptr;
@@ -353,6 +354,7 @@ ImageRef *ImageDao::createImageRef(qint64 id)
   iref->m_format = ps.resultString(4);
   iref->m_fileSize = ps.resultInteger(5);
   iref->m_pixelFormat = (QImage::Format)ps.resultInteger(6);
+  iref->m_url = ps.resultString(7);
 
   QWriteLocker refMapLocker(&m_refMapLock);
   m_refMap.insert(iref->m_fileId, iref);
@@ -765,8 +767,9 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   qInfo() << "Inserted image with ID" << last_id << "from" << url.toString();
 
   {
-    auto ps = m_conn.prepare("INSERT INTO image (id, date) VALUES (?1, datetime())");
+    auto ps = m_conn.prepare("INSERT INTO image (id, date, origin_url) VALUES (?1, datetime(), ?2)");
     ps.bind(1, last_id);
+    ps.bind(2, url.toString());
     ps.exec(SRC_LOCATION);
   }
 

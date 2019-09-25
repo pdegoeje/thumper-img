@@ -19,6 +19,7 @@ class ImageRef : public QObject {
   Q_PROPERTY(qint64 fileSize MEMBER m_fileSize CONSTANT)
   Q_PROPERTY(QString overlayFormat MEMBER m_overlayFormat NOTIFY overlayFormatChanged)
   Q_PROPERTY(QString overlayString READ overlayString NOTIFY overlayStringChanged STORED false)
+  Q_PROPERTY(QString url MEMBER m_url CONSTANT)
 public:
   ImageRef(QObject *parent = nullptr);
 
@@ -32,6 +33,7 @@ public:
   qint64 m_fileSize = 0;
   QImage::Format m_pixelFormat = QImage::Format_Invalid;
   QString m_overlayFormat;
+  QString m_url;
 
   QStringList tags() const;
   QSize size() const { return m_size; }

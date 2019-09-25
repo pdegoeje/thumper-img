@@ -41,6 +41,8 @@ QString ImageRef::overlayString() const
         output.append(tags().join(' '));
       } else if(variable == QStringLiteral("format")) {
         output.append(m_format);
+      } else if(variable == QStringLiteral("url")) {
+        output.append(m_url);
       } else {
         output.append(QStringLiteral("?%1?").arg(variable));
       }
