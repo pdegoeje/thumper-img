@@ -38,6 +38,7 @@ struct SQLitePreparedStatement {
   void destroy();
 
   SQLitePreparedStatement() { }
+  SQLitePreparedStatement(const SQLitePreparedStatement &) = delete;
   SQLitePreparedStatement(SQLiteConnection *conn, const char *sql);
   ~SQLitePreparedStatement() { destroy(); }
 };
@@ -51,6 +52,10 @@ struct SQLiteConnection {
 
   SQLiteConnection(const QString &dbname, int flags, SQLiteConnectionPool *pool);
   ~SQLiteConnection();
+
+  SQLitePreparedStatement prepare(const char *sql) {
+    return { this, sql };
+  }
 
   bool exec(const char *sql, const char *debug_str = nullptr);
   QMutex *writeLock();

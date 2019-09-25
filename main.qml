@@ -42,13 +42,9 @@ ApplicationWindow {
   ]
 
   function loadSettings() {
-    var settings = JSON.parse(fileUtils.load("thumper.json"))
-    if(settings) {
-      for(var k in settings) {
-        if(k in window) {
-          window[k] = settings[k]
-        }
-      }
+    var file = fileUtils.load("thumper.json")
+    if(file) {
+      Object.assign(this, JSON.parse(file))
     }
   }
 

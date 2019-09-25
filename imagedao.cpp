@@ -178,7 +178,7 @@ QVariant ImageDao::metaGet(const QString &key)
 {
   QVariant result;
 
-  SQLitePreparedStatement ps(m_conn, "SELECT type, value FROM meta WHERE key = ?1");
+  auto ps = m_conn->prepare("SELECT type, value FROM meta WHERE key = ?1");
   ps.bind(1, key);
   if(ps.step(SRC_LOCATION)) {
     const char *typeName = (const char *)sqlite3_column_text(ps.m_stmt, 0);
@@ -292,7 +292,7 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
 
   QList<QObject *> result;
 
-  SQLitePreparedStatement ps(m_conn,
+  auto ps = m_conn->prepare(
     "SELECT image.id, group_concat(tag, ' '), width, height, phash, deleted, format, filesize, pixelformat "
     "FROM image LEFT JOIN tag ON (tag.id = image.id) "
     "WHERE image.deleted IS NULL OR image.deleted <= ?1"
@@ -340,7 +340,7 @@ QStringList ImageDao::tagsById(qint64 id)
 
 ImageRef *ImageDao::createImageRef(qint64 id)
 {
-  SQLitePreparedStatement ps(m_conn, "SELECT width, height, phash, deleted, format, filesize, pixelformat FROM image WHERE id = ?1");
+  auto ps = m_conn->prepare("SELECT width, height, phash, deleted, format, filesize, pixelformat FROM image WHERE id = ?1");
   ps.bind(1, id);
   if(!ps.step(SRC_LOCATION))
     return nullptr;
@@ -383,7 +383,9 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
 
         idc.conn->exec("BEGIN");
         {
-          SQLitePreparedStatement ps(idc.conn, "UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
+          auto ps = idc.conn->prepare("UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
+
+          //SQLitePreparedStatement ps(idc.conn, );
           ps.bind(1, data);
           ps.bind(2, imageHash(data));
           ps.bind(3, iref->m_fileId);
@@ -507,19 +509,13 @@ void ImageDao::imageDataAcquire(ImageDao::ImageDataContext &idc, qint64 id)
   idc.ps.init(idc.conn->m_db, "SELECT image FROM store WHERE id = ?1");
   idc.ps.bind(1, id);
   idc.ps.step(SRC_LOCATION);
-
-  const char *data = (const char *)sqlite3_column_blob(idc.ps.m_stmt, 0);
-  int bytes = sqlite3_column_bytes(idc.ps.m_stmt, 0);
-
-  idc.data = QByteArray::fromRawData(data, bytes);
+  idc.data = idc.ps.resultBlobPointer(0);
 }
 
 void ImageDao::imageDataRelease(ImageDao::ImageDataContext &idc)
 {
-  idc.ps.reset();
   idc.ps.destroy();
-
-  m_connPool.close(idc.conn);
+  idc.conn->close();
 }
 
 static bool greaterThan(const QSize &a, const QSize &b) {
@@ -577,7 +573,7 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
   if(input.isNull()) {
     qDebug() << "Construct new thumbnail for" << iref->m_fileId << " Size" << thumbSize;
     // read from db
-    SQLitePreparedStatement ps_raw(conn, "SELECT image FROM store WHERE id = ?1");
+    auto ps_raw = conn->prepare("SELECT image FROM store WHERE id = ?1");
     ps_raw.bind(1, iref->m_fileId);
     ps_raw.step(SRC_LOCATION);
     QByteArray rawData = ps_raw.resultBlobPointer(0);
@@ -613,7 +609,7 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
     conn->exec("BEGIN", SRC_LOCATION);
     char sql[256];
     snprintf(sql, sizeof sql, "INSERT INTO thumb%d (id, image) VALUES (?1, ?2)", thumbsize);
-    SQLitePreparedStatement ps_w(conn, sql);
+    auto ps_w = conn->prepare(sql);
 
     ps_w.bind(1, iref->m_fileId);
     ps_w.bind(2, outputBuffer.buffer());
@@ -658,7 +654,7 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
       {
         char sql[256];
         snprintf(sql, sizeof sql, "SELECT image FROM thumb%d WHERE id = ?1", thumbSize.width());
-        SQLitePreparedStatement ps(conn, sql);
+        auto ps = conn->prepare(sql);
         ps.bind(1, id);
         ps.step(SRC_LOCATION);
 
@@ -750,7 +746,7 @@ void ImageDaoDeferredWriter::endWrite() {
 void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString &tag)
 {
   startWrite();
-  SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
+  auto ps = m_conn->prepare("INSERT OR IGNORE INTO tag (id, tag) VALUES (?1, ?2)");
   for(QObject *qobj : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(qobj)) {
       ps.bind(1, iref->m_fileId);
@@ -763,7 +759,7 @@ void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString
 void ImageDaoDeferredWriter::removeTag(const QList<QObject *> &irefs, const QString &tag)
 {
   startWrite();
-  SQLitePreparedStatement ps(m_conn, "DELETE FROM tag WHERE id = ?1 AND tag = ?2");
+  auto ps = m_conn->prepare("DELETE FROM tag WHERE id = ?1 AND tag = ?2");
   for(QObject *qobj : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(qobj)) {
       ps.bind(1, iref->m_fileId);
@@ -776,7 +772,7 @@ void ImageDaoDeferredWriter::removeTag(const QList<QObject *> &irefs, const QStr
 void ImageDaoDeferredWriter::updateDeleted(const QList<QObject *> &irefs, bool deleted)
 {
   startWrite();
-  SQLitePreparedStatement ps(m_conn, "UPDATE image SET deleted = ?1 WHERE id = ?2");
+  auto ps = m_conn->prepare("UPDATE image SET deleted = ?1 WHERE id = ?2");
   for(QObject *ptr : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(ptr)) {
       ps.bind(1, (qint64)deleted);
@@ -797,7 +793,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   QString hash = ImageDao::imageHash(data);
 
   {
-    SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
+    auto ps = m_conn->prepare("INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");
     ps.bind(1, hash);
     ps.bind(2, data);
     ps.exec(SRC_LOCATION);
@@ -812,7 +808,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   qInfo() << "Inserted image with ID" << last_id << "from" << url.toString();
 
   {
-    SQLitePreparedStatement ps(m_conn, "INSERT INTO image (id, date) VALUES (?1, datetime())");
+    auto ps = m_conn->prepare("INSERT INTO image (id, date) VALUES (?1, datetime())");
     ps.bind(1, last_id);
     ps.exec(SRC_LOCATION);
   }
