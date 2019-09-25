@@ -16,54 +16,44 @@ void SQLitePreparedStatement::init(SQLiteConnection *conn, const char *statement
   init(conn->m_db, statement);
 }
 
-void SQLitePreparedStatement::exec(const char *debug_str)
+void SQLitePreparedStatement::exec(const char *debug_str) const
 {
   step(debug_str);
   reset();
 }
 
-void SQLitePreparedStatement::bind(int param, const QString &text)
+void SQLitePreparedStatement::bind(int param, const QString &text) const
 {
   if(sqlite3_bind_text16(m_stmt, param, text.constData(), text.size() * 2, SQLITE_TRANSIENT) != SQLITE_OK) {
     qWarning("SQLite bind text error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
-void SQLitePreparedStatement::bind(int param, qint64 value)
+void SQLitePreparedStatement::bind(int param, qint64 value) const
 {
   if(sqlite3_bind_int64(m_stmt, param, value) != SQLITE_OK) {
     qWarning("SQLite bind integer error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
-void SQLitePreparedStatement::bind(int param, const QByteArray &data)
+void SQLitePreparedStatement::bind(int param, const QByteArray &data) const
 {
   if(sqlite3_bind_blob(m_stmt, param, data.data(), data.length(), SQLITE_TRANSIENT) != SQLITE_OK) {
     qWarning("SQLite bind blob error: %s", sqlite3_errmsg(sqlite3_db_handle(m_stmt)));
   }
 }
 
-QString SQLitePreparedStatement::resultString(int index)
+QString SQLitePreparedStatement::resultString(int index) const
 {
   return QString((const QChar *)sqlite3_column_text16(m_stmt, index));
 }
 
-qint64 SQLitePreparedStatement::resultInteger(int index)
+qint64 SQLitePreparedStatement::resultInteger(int index) const
 {
   return sqlite3_column_int64(m_stmt, index);
 }
 
-QByteArray SQLitePreparedStatement::resultBlobPointer(int index)
-{
-  const char *data = (const char *)sqlite3_column_blob(m_stmt, index);
-  if(data != nullptr) {
-    int bytes = sqlite3_column_bytes(m_stmt, index);
-    return QByteArray::fromRawData(data, bytes);
-  }
-  return {};
-}
-
-bool SQLitePreparedStatement::step(const char *debug_str)
+bool SQLitePreparedStatement::step(const char *debug_str) const
 {
   int rval = sqlite3_step(m_stmt);
   if(rval == SQLITE_ROW) {
@@ -78,12 +68,12 @@ bool SQLitePreparedStatement::step(const char *debug_str)
   return false;
 }
 
-void SQLitePreparedStatement::reset()
+void SQLitePreparedStatement::reset() const
 {
   sqlite3_reset(m_stmt);
 }
 
-void SQLitePreparedStatement::clear()
+void SQLitePreparedStatement::clear() const
 {
   sqlite3_clear_bindings(m_stmt);
 }
@@ -92,6 +82,16 @@ void SQLitePreparedStatement::destroy()
 {
   sqlite3_finalize(m_stmt);
   m_stmt = nullptr;
+}
+
+QByteArray SQLitePreparedStatement::resultBlobPointer(sqlite3_stmt *m_stmt, int index)
+{
+  const char *data = (const char *)sqlite3_column_blob(m_stmt, index);
+  if(data != nullptr) {
+    int bytes = sqlite3_column_bytes(m_stmt, index);
+    return QByteArray::fromRawData(data, bytes);
+  }
+  return {};
 }
 
 SQLitePreparedStatement::SQLitePreparedStatement(sqlite3 *m_db, const char *sql)
@@ -120,7 +120,7 @@ void SQLiteConnection::operator =(SQLiteConnection &&other)
   other.m_pool = nullptr;
 }
 
-bool SQLiteConnection::exec(const char *sql, const char *debug_str)
+bool SQLiteConnection::exec(const char *sql, const char *debug_str) const
 {
   char *errmsg;
   if(sqlite3_exec(m_db, sql, nullptr, nullptr, &errmsg) != SQLITE_OK) {
@@ -172,4 +172,3 @@ void SQLiteConnectionPool::close(sqlite3 *conn) {
   QMutexLocker lock(&m_mutex);
   m_pool.append(conn);
 }
-

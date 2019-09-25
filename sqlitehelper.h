@@ -25,21 +25,31 @@ struct SQLitePreparedStatement {
 
   void init(sqlite3 *db, const char *statement);
   void init(SQLiteConnection *conn, const char *statement);
-  void exec(const char *debug_str = nullptr); // step + reset
-  void bind(int param, const QString &text);
-  void bind(int param, qint64 value);
-  void bind(int param, const QByteArray &data);
-  QString resultString(int index);
-  qint64 resultInteger(int index);
-  QByteArray resultBlobPointer(int index);
-  bool step(const char *debug_str = nullptr);
-  void reset();
-  void clear();
+  void exec(const char *debug_str = nullptr) const; // step + reset
+  void bind(int param, const QString &text) const;
+  void bind(int param, qint64 value) const ;
+  void bind(int param, const QByteArray &data) const;
+  QString resultString(int index) const;
+  qint64 resultInteger(int index) const;
+
+  bool step(const char *debug_str = nullptr) const;
+  void reset() const;
+  void clear() const;
   void destroy();
+  void detach() { m_stmt = nullptr; }
+
+  QByteArray resultBlobPointer(int index) const { return resultBlobPointer(m_stmt, index); };
+  static QByteArray resultBlobPointer(sqlite3_stmt *m_stmt, int index);
 
   SQLitePreparedStatement() { }
-  SQLitePreparedStatement(const SQLitePreparedStatement &) = delete;
   SQLitePreparedStatement(sqlite3 *m_db, const char *sql);
+  SQLitePreparedStatement(SQLitePreparedStatement &&other) {
+    this->m_stmt = other.m_stmt;
+    other.m_stmt = nullptr;
+  }
+
+  SQLitePreparedStatement(const SQLitePreparedStatement &) = delete;
+
   ~SQLitePreparedStatement() { destroy(); }
 };
 
@@ -49,11 +59,12 @@ struct SQLiteConnection {
   sqlite3 *m_db = nullptr;
   SQLiteConnectionPool *m_pool = nullptr;
 
-  SQLitePreparedStatement prepare(const char *sql) {
+  SQLitePreparedStatement prepare(const char *sql) const {
     return { m_db, sql };
   }
 
-  bool exec(const char *sql, const char *debug_str = nullptr);
+  bool exec(const char *sql, const char *debug_str = nullptr) const;
+
   QMutex *writeLock();
 
   SQLiteConnection() { };

@@ -366,11 +366,8 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
 
   for(QObject *ptr : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(ptr)) {
-      auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
-      ps.bind(1, iref->m_fileId);
-      ps.step(SRC_LOCATION);
-      QByteArray data = ps.resultBlobPointer(0);
-      QBuffer buffer(&data);
+      RawImageQuery riq(conn, iref->m_fileId);
+      QBuffer buffer(&riq.data);
       QImageReader reader(&buffer);
       QByteArray format = reader.format();
       if(format != "jpeg") {
@@ -556,19 +553,11 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
   if(input.isNull()) {
     qDebug() << "Construct new thumbnail for" << iref->m_fileId << " Size" << thumbSize;
     // read from db
-    auto ps_raw = conn->prepare("SELECT image FROM store WHERE id = ?1");
-    ps_raw.bind(1, iref->m_fileId);
-    ps_raw.step(SRC_LOCATION);
-    QByteArray rawData = ps_raw.resultBlobPointer(0);
-    if(rawData.isNull())
+    RawImageQuery riq(*conn, iref->m_fileId);
+    if(riq.data.isNull())
       return result;
 
-    QSize newSize = scaleOverlap(iref->size(), thumbSize);
-
-    QBuffer buffer(&rawData);
-    QImageReader imageReader(&buffer);
-    imageReader.setScaledSize(newSize);
-    result = imageReader.read();
+    result = riq.decode(thumbSize);
     if(result.format() != QImage::Format_RGB32) {
       // convert transparent pixels to dark grey.
       QImage canvas(result.size(), QImage::Format_RGB32);
@@ -664,22 +653,10 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
   }
 
   auto conn = m_connPool.open();
-  auto ps = conn.prepare("SELECT image FROM store WHERE id = ?1");
-  ps.bind(1, id);
-  ps.step(SRC_LOCATION);
-  QByteArray data = ps.resultBlobPointer(0);
 
+  RawImageQuery riq(conn, id);
   if(!(*cancelled)) {
-    //qDebug() << "Load raw image" << iref->m_fileId << thumbSize << requestedSize << actualSize;
-
-    QBuffer buffer(&data);
-    QImageReader reader(&buffer);
-
-    if(requestedSize.isValid()) {
-      reader.setScaledSize(scaleOverlap(reader.size(), requestedSize));
-    }
-
-    result = reader.read();
+    result = riq.decode(requestedSize);
   }
 
   return result;
@@ -801,4 +778,13 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   endWrite();
 
   emit writeComplete(url, last_id);
+}
+
+QImage RawImageQuery::decode(const QSize &size) {
+  QBuffer buffer(&data);
+  QImageReader reader(&buffer);
+  if(size.isValid()) {
+    reader.setScaledSize(scaleOverlap(reader.size(), size));
+  }
+  return reader.read();
 }

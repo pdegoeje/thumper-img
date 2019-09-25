@@ -16,6 +16,19 @@
 #include <QTimer>
 #include <QReadWriteLock>
 
+struct RawImageQuery {
+  SQLitePreparedStatement ps;
+  QByteArray data;
+
+  RawImageQuery(const SQLiteConnection &conn, qint64 id) : ps(conn.prepare("SELECT image FROM store WHERE id = ?1")) {
+    ps.bind(1, id);
+    ps.step();
+    data = ps.resultBlobPointer(0);
+  }
+
+  QImage decode(const QSize &size = {});
+};
+
 class ImageDaoSyncPoint: public QObject {
   Q_OBJECT
 public:
