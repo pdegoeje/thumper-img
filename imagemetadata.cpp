@@ -222,9 +222,15 @@ void FixImageMetaDataTask::run() {
   ImageDao *dao = ImageDao::instance();
   SQLiteConnection *conn = dao->connPool()->open();
 
+  QMutexLocker lock(conn->writeLock());
   conn->exec("BEGIN", SRC_LOCATION);
+  conn->exec("DELETE FROM thumb40");
+  conn->exec("DELETE FROM thumb80");
+  conn->exec("DELETE FROM thumb160");
+  conn->exec("DELETE FROM thumb320");
+  conn->exec("DELETE FROM thumb640");
+  conn->exec("DELETE FROM thumb1280");
   {
-
     SQLitePreparedStatement ps(conn, "SELECT id FROM image ORDER BY id");
     qreal progress = 0.0;
     while(ps.step(SRC_LOCATION)) {

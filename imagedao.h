@@ -80,6 +80,8 @@ public:
   SQLiteConnectionPool *connPool() { return &m_connPool; }
 
   bool tableExists(const QString &table);
+
+
   Q_INVOKABLE void metaPut(const QString &key, const QVariant &val);
   Q_INVOKABLE QVariant metaGet(const QString &key);
 
@@ -91,6 +93,7 @@ public:
   Q_INVOKABLE QList<QObject *> all(bool includeDeleted);
   Q_INVOKABLE QStringList tagsById(qint64 id);
   Q_INVOKABLE ImageRef *createImageRef(qint64 id);
+  Q_INVOKABLE void compressImages(const QList<QObject *> &irefs);
 
   Q_INVOKABLE void purgeDeletedImages();
   Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
@@ -103,6 +106,7 @@ public:
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 
+  static QString imageHash(const QByteArray &data);
   static ImageDao *instance();
 signals:
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);

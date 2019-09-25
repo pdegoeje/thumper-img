@@ -217,6 +217,11 @@ Popup {
         }
 
         Button {
+          text: "Compress selected images to JPEG"
+          onClicked: ImageDao.compressImages(effectiveSelectionModel)
+        }
+
+        Button {
           text: "Find duplicates"
           onClicked: {
             var refList = ImageDao.findAllDuplicates(allSimpleList, maxDistance.value)

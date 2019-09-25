@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QBuffer>
 #include <QColor>
+#include <QTextStream>
 
 ImageProcessor::ImageProcessor(QObject *parent) : QObject(parent)
 {
@@ -54,6 +55,11 @@ void ImageProcessor::download(const QUrl &url)
   emit startDownload(url);
 }
 
+void ImageProcessor::downloadText(const QString &str) {
+  qDebug() << "Text url" << str;
+  //download(QUrl(str));
+}
+
 void ImageProcessor::downloadList(const QList<QUrl> &urls)
 {
   for(const auto &url : urls) {
@@ -64,6 +70,27 @@ void ImageProcessor::downloadList(const QList<QUrl> &urls)
 QString ImageProcessor::urlFileName(const QUrl &url)
 {
   return url.fileName();
+}
+
+bool ImageProcessor::isUrl(const QString &text)
+{
+  QUrl url(text, QUrl::TolerantMode);
+  return url.isValid();
+}
+
+QList<QUrl> ImageProcessor::parseTextUriList(const QString &text)
+{
+  QList<QUrl> result;
+  QTextStream str((QString *)&text, QIODevice::ReadOnly);
+
+  QString line;
+  while(!(line = str.readLine()).isNull()) {
+    QUrl url(line);
+    if(url.isValid())
+      result.append(url);
+  }
+
+  return result;
 }
 
 bool ImageFetcher::isHttpRedirect(QNetworkReply *reply)

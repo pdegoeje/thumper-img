@@ -361,6 +361,56 @@ ImageRef *ImageDao::createImageRef(qint64 id)
   return iref;
 }
 
+void ImageDao::compressImages(const QList<QObject *> &irefs)
+{
+  QMutexLocker writeLock(connPool()->writeLock());
+
+  for(QObject *ptr : irefs) {
+    if(auto iref = qobject_cast<ImageRef *>(ptr)) {
+      ImageDataContext idc;
+      imageDataAcquire(idc, iref->m_fileId);
+
+      QBuffer buffer(&idc.data);
+      QImageReader reader(&buffer);
+      QByteArray format = reader.format();
+      if(format != "jpeg") {
+        qDebug() << "Re-compressing" << iref->m_fileId;
+        QImage image = reader.read();
+        QBuffer outputBuffer;
+        image.save(&outputBuffer, "jpeg", 95);
+        QByteArray data = outputBuffer.data();
+        qDebug() << "New size" << data.length();
+
+        idc.conn->exec("BEGIN");
+        {
+          SQLitePreparedStatement ps(idc.conn, "UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
+          ps.bind(1, data);
+          ps.bind(2, imageHash(data));
+          ps.bind(3, iref->m_fileId);
+          ps.exec(SRC_LOCATION);
+        }
+
+        {
+          SQLitePreparedStatement ps(idc.conn, "UPDATE image SET filesize = ?1, format = ?2 WHERE id = ?3");
+          ps.bind(1, data.size());
+          ps.bind(2, QStringLiteral("jpeg"));
+          ps.bind(3, iref->m_fileId);
+          ps.exec(SRC_LOCATION);
+        }
+        idc.conn->exec("COMMIT");
+
+        iref->m_format = QStringLiteral("jpeg");
+        iref->m_fileSize = data.size();
+
+        // force update
+        emit iref->tagsChanged();
+      }
+
+      imageDataRelease(idc);
+    }
+  }
+}
+
 void ImageDao::purgeDeletedImages()
 {
   QMutexLocker writeLock(m_conn->writeLock());
@@ -655,6 +705,12 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
   return result;
 }
 
+QString ImageDao::imageHash(const QByteArray &data)
+{
+  QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
+  return hashBytes.toHex();
+}
+
 ImageDao *ImageDao::instance()
 {
   if(!m_instance) {
@@ -738,9 +794,7 @@ void ImageDaoDeferredWriter::sync(ImageDaoSyncPoint *syncPoint, const QVariant &
 void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
 {
   startWrite();
-
-  QByteArray hashBytes = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
-  QString hash = hashBytes.toHex();
+  QString hash = ImageDao::imageHash(data);
 
   {
     SQLitePreparedStatement ps(m_conn, "INSERT OR IGNORE INTO store (hash, image) VALUES (?1, ?2)");

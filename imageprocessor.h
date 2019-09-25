@@ -7,6 +7,7 @@
 #include <QQueue>
 #include <QThread>
 #include <QTimer>
+#include <QDrag>
 
 class ImageFetcher : public QObject {
   Q_OBJECT
@@ -35,8 +36,11 @@ public:
 
   Q_INVOKABLE void setClipBoard(const QString &data);
   Q_INVOKABLE void download(const QUrl &url);
+  Q_INVOKABLE void downloadText(const QString &str);
   Q_INVOKABLE void downloadList(const QList<QUrl> &urls);
   Q_INVOKABLE QString urlFileName(const QUrl &url);
+  Q_INVOKABLE bool isUrl(const QString &text);
+  Q_INVOKABLE QList<QUrl> parseTextUriList(const QString &text);
 signals:
   void imageReady(const QUrl &url, quint64 fileId);
   void startDownload(const QUrl &url);

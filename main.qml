@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.13.0"
+  title: "Thumper 1.14.0"
 
   FileUtils {
     id: fileUtils
@@ -733,17 +733,25 @@ ApplicationWindow {
 
   DropArea {
     anchors.fill: parent
-    keys: ["text/uri-list"]
+    keys: ["text/plain", "text/uri-list"]
 
-    onEntered: {
-      var copy = (drag.supportedActions & Qt.CopyAction) != 0
-      drag.accepted = drag.hasUrls && copy
-    }
+    /*onEntered: {
+      console.log("Drop formats", drag.formats)
+      if(drag.hasText && processor.isUrl(drag.text) || drag.hasUrls) {
+        drag.accepted = true
+      }
+    }*/
 
     onDropped: {
-      if (drop.hasUrls && drop.proposedAction == Qt.CopyAction) {
+      if(drop.hasText || drop.hasUrls) {
         drop.acceptProposedAction()
-        processor.downloadList(drop.urls)
+
+        var urilist = processor.parseTextUriList(drop.text)
+        if(urilist.length > 0) {
+          processor.downloadList(urilist)
+        } else {
+          processor.downloadList(drop.urls)
+        }
       }
     }
   }
