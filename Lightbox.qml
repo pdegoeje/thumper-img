@@ -35,30 +35,72 @@ Popup {
     }
   }
   
-  Item {
-    implicitWidth: content.paintedWidth
-    implicitHeight: content.paintedHeight
+  Flickable {
+    id: flickable
+    implicitWidth: Math.min(window.width, contentWidth)
+    implicitHeight: Math.min(window.height, contentHeight)
+
+    contentWidth: content.width
+    contentHeight: content.height
     
+    synchronousDrag: true
+    boundsBehavior: Flickable.StopAtBounds
+
+    focus: true
+
+    Keys.onUpPressed: list.moveCurrentIndexUp()
+    Keys.onDownPressed: list.moveCurrentIndexDown()
+    Keys.onLeftPressed: list.moveCurrentIndexLeft()
+    Keys.onRightPressed: list.moveCurrentIndexRight()
+    Keys.onPressed: {
+      var oX = contentX + width / 2
+      var oY = contentY + height / 2
+
+      var zoom = 1
+
+      if(event.key === Qt.Key_BracketRight) {
+        zoom = 2
+      } else if(event.key === Qt.Key_BracketLeft) {
+        zoom = 0.5
+      }
+      content.width *= zoom
+      content.height *= zoom
+      oX *= zoom
+      oY *= zoom
+
+      contentX = oX - width / 2
+      contentY = oY - height / 2
+    }
+
     Image {
       id: content
       
       asynchronous: true
       
-      anchors.centerIn: parent
+      //anchors.centerIn: parent
       
-      sourceSize.width: window.width - 40
-      sourceSize.height: window.height - 40
+      //sourceSize.width: window.width
+      //sourceSize.height: window.height
       
       opacity: (status == Image.Ready) ? 1 : 0
       
       smooth: true
-      width: sourceSize.width
-      height: sourceSize.height
-      fillMode: Image.PreserveAspectFit
+      //width: sourceSize.width
+      //height: sourceSize.height
+      //fillMode: Image.PreserveAspectCrop
       source: "image://thumper/" + lightbox.image.fileId
       
+      onStatusChanged: {
+        if(status === Image.Ready) {
+          flickable.contentX = (content.width - flickable.width) / 2
+          flickable.contentY = (content.height - flickable.height) / 2
+
+          flickable.forceActiveFocus()
+        }
+      }
+
       Behavior on opacity {
-        NumberAnimation { duration: 100 }
+        OpacityAnimator { duration: 100 }
       }
     }
   }

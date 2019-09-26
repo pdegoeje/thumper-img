@@ -420,7 +420,7 @@ ApplicationWindow {
     highlightFollowsCurrentItem: false
 
     pixelAligned: false
-    interactive: true
+    interactive: !lightboxLoader.active
 
     property bool isScrolling: false
 
