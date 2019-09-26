@@ -421,6 +421,13 @@ void ImageDao::purgeDeletedImages()
   qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
 }
 
+void ImageDao::vacuum()
+{
+  QMutexLocker writeLock(m_conn.writeLock());
+  m_conn.exec("VACUUM", SRC_LOCATION);
+  qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
+}
+
 QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
 {
   QList<QObject *> result;

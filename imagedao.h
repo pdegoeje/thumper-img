@@ -103,6 +103,7 @@ public:
   Q_INVOKABLE void compressImages(const QList<QObject *> &irefs);
 
   Q_INVOKABLE void purgeDeletedImages();
+  Q_INVOKABLE void vacuum();
   Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);

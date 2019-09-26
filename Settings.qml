@@ -269,6 +269,11 @@ Popup {
             ImageDao.purgeDeletedImages()
           }
         }
+
+        Button {
+          text: "Vacuum Database"
+          onClicked: ImageDao.vacuum()
+        }
       }
     }
   }
