@@ -240,7 +240,6 @@ void updateImageMetaDataAll(ImageDaoProgress *progress) {
       updateImageMetaData(&conn, riq.data, id);
       emit progress->progress(++imageCount);
     }
-    emit progress->complete();
   }
 
   conn.exec("COMMIT", SRC_LOCATION);

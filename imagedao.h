@@ -57,6 +57,10 @@ public slots:
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
   void writeImage(const QUrl &url, const QByteArray &data);
+
+  void fixImageMetaData(ImageDaoProgress *progress);
+  void purgeDeletedImages(ImageDaoProgress *progress);
+  void vacuum(ImageDaoProgress *progress);
 signals:
   void writeComplete(const QUrl &url, quint64 fileId);
 };
@@ -119,9 +123,7 @@ public:
   static ImageDao *instance();
 
 public slots:
-  void fixImageMetaData(ImageDaoProgress *progress);
-  void purgeDeletedImages(ImageDaoProgress *progress);
-  void vacuum(ImageDaoProgress *progress);
+
 signals:
   void deferredBackgroundTask(const QString &name, ImageDaoProgress *progress);
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);

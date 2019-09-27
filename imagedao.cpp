@@ -419,28 +419,6 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
   }
 }
 
-void ImageDao::purgeDeletedImages(ImageDaoProgress *progress)
-{
-  QMutexLocker writeLock(m_conn.writeLock());
-  m_conn.exec("BEGIN", SRC_LOCATION);
-  m_conn.exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
-  m_conn.exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
-  m_conn.exec("DELETE FROM image WHERE deleted = 1", SRC_LOCATION);
-  m_conn.exec("COMMIT", SRC_LOCATION);
-  qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
-
-  emit progress->complete();
-}
-
-void ImageDao::vacuum(ImageDaoProgress *progress)
-{
-  QMutexLocker writeLock(m_conn.writeLock());
-  m_conn.exec("VACUUM", SRC_LOCATION);
-  qInfo("Vacuum complete");
-
-  emit progress->complete();
-}
-
 QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
 {
   QList<QObject *> result;
@@ -512,14 +490,10 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
   }
 }
 
-void ImageDao::fixImageMetaData(ImageDaoProgress *progress)
-{
-  updateImageMetaDataAll(progress);
-}
+
 
 void ImageDao::backgroundTask(const QString &name, ImageDaoProgress *progress)
 {
-  emit progress->progress(0);
   emit deferredBackgroundTask(name, progress);
 }
 
@@ -730,9 +704,11 @@ void ImageDaoDeferredWriter::endWrite() {
   }
 }
 
-void ImageDaoDeferredWriter::backgroundTask(const QString &name, ImageDaoProgress *syncPoint)
+void ImageDaoDeferredWriter::backgroundTask(const QString &name, ImageDaoProgress *progress)
 {
-  QMetaObject::invokeMethod(ImageDao::instance(), name.toLatin1().constData(), Qt::DirectConnection, Q_ARG(ImageDaoProgress *, syncPoint));
+  emit progress->progress(0);
+  QMetaObject::invokeMethod(this, name.toLatin1().constData(), Qt::DirectConnection, Q_ARG(ImageDaoProgress *, progress));
+  emit progress->complete();
 }
 
 void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString &tag)
@@ -807,6 +783,32 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
 
   emit writeComplete(url, last_id);
 }
+
+
+void ImageDaoDeferredWriter::purgeDeletedImages(ImageDaoProgress *progress)
+{
+  startWrite();
+  m_conn.exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
+  m_conn.exec("DELETE FROM tag WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
+  m_conn.exec("DELETE FROM image WHERE deleted = 1", SRC_LOCATION);
+  endWrite();
+  qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
+}
+
+void ImageDaoDeferredWriter::vacuum(ImageDaoProgress *progress)
+{
+  endWrite();
+
+  QMutexLocker lock(m_conn.writeLock());
+  m_conn.exec("VACUUM", SRC_LOCATION);
+  qInfo("Vacuum complete");
+}
+
+void ImageDaoDeferredWriter::fixImageMetaData(ImageDaoProgress *progress)
+{
+  updateImageMetaDataAll(progress);
+}
+
 
 QImage RawImageQuery::decode(const QSize &size) {
   QBuffer buffer(&data);
