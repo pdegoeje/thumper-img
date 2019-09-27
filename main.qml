@@ -15,13 +15,18 @@ ApplicationWindow {
 
   FileUtils {
     id: fileUtils
-    onImageDatabaseSelected: console.log("fileselected: ", file)
+    onImageDatabaseSelected: {
+      console.log("fileselected: ", file)
+      launchThumper(file)
+    }
   }
 
   ImageDaoSyncPoint {
     id: imageDaoSyncPoint
     onSync: console.log("sync", userData)
   }
+
+  readonly property string settingsFilename: thumper.databaseFilename + ".config.json"
 
   property var persistentProperties: [
     'pathPrefix',
@@ -42,7 +47,7 @@ ApplicationWindow {
   ]
 
   function loadSettings() {
-    var file = fileUtils.load("thumper.json")
+    var file = fileUtils.load(settingsFilename)
     if(file) {
       Object.assign(this, JSON.parse(file))
     }
@@ -55,10 +60,10 @@ ApplicationWindow {
       settings[k] = window[k]
     }
 
-    fileUtils.save("thumper.json", JSON.stringify(settings, null, 2))
+    fileUtils.save(settingsFilename, JSON.stringify(settings, null, 2))
   }
 
-  Component.onCompleted: {
+  Component.onCompleted: {    
     loadSettings()
     allSimpleList = ImageDao.all(showHiddenImages)
     setViewList(allSimpleList)

@@ -24,6 +24,7 @@
 #include <QPainter>
 
 ImageDao *ImageDao::m_instance;
+QString ImageDao::m_databaseFilename = QStringLiteral("default.imgdb");
 
 #define EXEC(sql) \
 do { \
@@ -33,7 +34,7 @@ do { \
 
 ImageDao::ImageDao(QObject *parent) :
   QObject(parent),
-  m_connPool(QStringLiteral("main.db"), SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE),
+  m_connPool(m_databaseFilename, SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE),
   m_conn(m_connPool.open())
 {
   auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
@@ -51,6 +52,8 @@ ImageDao::ImageDao(QObject *parent) :
   QVariant version;
 
   EXEC("PRAGMA journal_mode = WAL");
+
+  EXEC("BEGIN");
 
   if(!tableExists(QStringLiteral("store"))) {
     EXEC("CREATE TABLE store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, date INTEGER, image BLOB)");
@@ -88,8 +91,6 @@ ImageDao::ImageDao(QObject *parent) :
   if(version < 4) {
     qInfo("Upgrading database format to 4");
 
-    EXEC("BEGIN");
-
     EXEC("CREATE TABLE new_store (id INTEGER PRIMARY KEY, hash TEXT UNIQUE, image BLOB)");
     EXEC("CREATE TABLE image (id INTEGER PRIMARY KEY, date INTEGER, width INTEGER, height INTEGER, phash INTEGER, origin_url TEXT)");
     EXEC("INSERT INTO new_store SELECT id, hash, image FROM store");
@@ -98,8 +99,6 @@ ImageDao::ImageDao(QObject *parent) :
     EXEC("ALTER TABLE new_store RENAME TO store");
 
     metaPut(QStringLiteral("version"), version = 4);
-
-    EXEC("COMMIT");
   }
 
   if(version < 5) {
@@ -132,7 +131,12 @@ ImageDao::ImageDao(QObject *parent) :
     EXEC("ALTER TABLE image ADD COLUMN pixelformat INTEGER");
     metaPut(QStringLiteral("version"), version = 13);
   }
+
+  EXEC("COMMIT");
+  return;
+
 error:
+  EXEC("ROLLBACK");
   return;
 }
 
@@ -150,6 +154,11 @@ bool ImageDao::tableExists(const QString &table)
   auto ps = m_conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?1");
   ps.bind(1, table);
   return ps.step();
+}
+
+void ImageDao::setDatabaseFilename(const QString &filename)
+{
+  m_databaseFilename = filename;
 }
 
 void ImageDao::metaPut(const QString &key, const QVariant &val)

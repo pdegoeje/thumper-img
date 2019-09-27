@@ -23,6 +23,7 @@ SOURCES += \
     sqlite3.c \
     sqlitehelper.cpp \
     taglist.cpp \
+    thumper.cpp \
     thumperimageprovider.cpp
 
 RESOURCES += qml.qrc
@@ -58,6 +59,7 @@ HEADERS += \
     sqlite3.h \
     sqlitehelper.h \
     taglist.h \
+    thumper.h \
     thumperimageprovider.h
 
 RC_ICONS = eye.ico

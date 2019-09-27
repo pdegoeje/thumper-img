@@ -65,6 +65,7 @@ class ImageDao : public QObject
   Q_OBJECT
 
   static ImageDao *m_instance;
+  static QString m_databaseFilename;
 
   SQLiteConnectionPool m_connPool;
   SQLiteConnection m_conn;
@@ -88,6 +89,7 @@ public:
 
   bool tableExists(const QString &table);
 
+  static void setDatabaseFilename(const QString &filename);
 
   Q_INVOKABLE void metaPut(const QString &key, const QVariant &val);
   Q_INVOKABLE QVariant metaGet(const QString &key);

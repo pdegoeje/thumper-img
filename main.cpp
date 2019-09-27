@@ -4,48 +4,68 @@
 #include "sqlite3.h"
 #include "taglist.h"
 #include "fileutils.h"
+#include "thumper.h"
 
 #include <QApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QFile>
+#include <QQmlContext>
+#include <QStandardPaths>
 
-static void (*previousMessageHandler)(QtMsgType, const QMessageLogContext &, const QString &);
-static QFile *logFile;
-static QBasicMutex logMutex;
+static void (*msgPrevHandler)(QtMsgType, const QMessageLogContext &, const QString &);
+static QFile msgLogFile;
+static QBasicMutex msgMutex;
 
 static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
   {
-    QMutexLocker lock(&logMutex);
-    if(logFile == nullptr) {
-      logFile = new QFile("thumper.log");
-      if(!logFile->open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        fprintf(stderr, "Failed to open logfile\n");
-      } else {
-        fprintf(stderr, "Log file: %s\n", qUtf8Printable(logFile->fileName()));
-      }
-    }
-
     QString output = QString::asprintf("%s %s (%s:%u, %s)\n",
                                        qUtf8Printable(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss.zzz"))),
                                        qUtf8Printable(msg), context.file, context.line, context.function);
-    logFile->write(output.toUtf8());
-    logFile->flush();
+
+    QMutexLocker lock(&msgMutex);
+    msgLogFile.write(output.toUtf8());
+    msgLogFile.flush();
   }
 
-  if(previousMessageHandler != nullptr) {
-    previousMessageHandler(type, context, msg);
+  if(msgPrevHandler != nullptr) {
+    msgPrevHandler(type, context, msg);
   }
+}
+
+static void installFileLogging(const QString &logfile) {
+  msgLogFile.setFileName(logfile);
+  if(!msgLogFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+    fprintf(stderr, "Failed to open logfile: %s\n", qUtf8Printable(logfile));
+  } else {
+    fprintf(stderr, "Log file: %s\n", qUtf8Printable(logfile));
+  }
+  msgPrevHandler = qInstallMessageHandler(&messageHandler);
 }
 
 int main(int argc, char *argv[])
 {
-  previousMessageHandler = qInstallMessageHandler(&messageHandler);
+  Thumper thumper;
 
   QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-
   QApplication app(argc, argv);
 
+  QDir docDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+  QString dbname = docDir.filePath(QStringLiteral("thumper.imgdb"));
+
+  auto args = app.arguments();
+  if(args.length() >= 2) {
+    dbname = args.at(1);
+  }
+
+  QFileInfo file(dbname);
+  file.makeAbsolute();
+  thumper.m_databaseFilename = file.filePath();
+
+  installFileLogging(thumper.databaseFilename() + ".debug.log");
+  ImageDao::setDatabaseFilename(thumper.databaseFilename());
+
+  qmlRegisterUncreatableType<Thumper>("thumper", 1, 0, "Thumper", QString("Must be created before QML engine starts"));
   qmlRegisterType<ImageProcessStatus>("thumper", 1, 0, "ImageProcessStatus");
   qmlRegisterType<ImageRef>("thumper", 1, 0, "ImageRef");
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
@@ -60,7 +80,7 @@ int main(int argc, char *argv[])
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());
-
+  engine.rootContext()->setContextProperty("thumper", &thumper);
   engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
   if (engine.rootObjects().isEmpty())
     return -1;

@@ -1,5 +1,7 @@
 #include "fileutils.h"
 
+#include <QProcess>
+#include <QCoreApplication>
 #include <QQuickWindow>
 #include <QTextStream>
 #include <QFile>
@@ -44,4 +46,9 @@ QString FileUtils::load(const QString &path)
 void FileUtils::openImageDatabase()
 {
   m_fileDialog.open();
+}
+
+void FileUtils::launchThumper(const QString &argument)
+{
+  QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList(argument));
 }

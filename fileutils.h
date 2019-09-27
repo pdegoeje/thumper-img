@@ -15,9 +15,11 @@ public:
   Q_INVOKABLE void save(const QString &path, const QString &data);
   Q_INVOKABLE QString load(const QString &path);
   Q_INVOKABLE void openImageDatabase();
+  Q_INVOKABLE void launchThumper(const QString &argument);
 signals:
   void imageDatabaseSelected(const QString &file);
 public slots:
 };
+
 
 #endif // FILEUTILS_H
