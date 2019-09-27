@@ -38,7 +38,7 @@ ImageDao::ImageDao(QObject *parent) :
   m_conn(m_connPool.open())
 {
   auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
-  connect(this, &ImageDao::deferredSync, idfw, &ImageDaoDeferredWriter::sync);
+  connect(this, &ImageDao::deferredBackgroundTask, idfw, &ImageDaoDeferredWriter::backgroundTask);
   connect(this, &ImageDao::deferredAddTag, idfw, &ImageDaoDeferredWriter::addTag);
   connect(this, &ImageDao::deferredRemoveTag, idfw, &ImageDaoDeferredWriter::removeTag);
   connect(this, &ImageDao::deferredUpdateDeleted, idfw, &ImageDaoDeferredWriter::updateDeleted);
@@ -419,7 +419,7 @@ void ImageDao::compressImages(const QList<QObject *> &irefs)
   }
 }
 
-void ImageDao::purgeDeletedImages()
+void ImageDao::purgeDeletedImages(ImageDaoProgress *progress)
 {
   QMutexLocker writeLock(m_conn.writeLock());
   m_conn.exec("BEGIN", SRC_LOCATION);
@@ -428,13 +428,17 @@ void ImageDao::purgeDeletedImages()
   m_conn.exec("DELETE FROM image WHERE deleted = 1", SRC_LOCATION);
   m_conn.exec("COMMIT", SRC_LOCATION);
   qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
+
+  emit progress->complete();
 }
 
-void ImageDao::vacuum()
+void ImageDao::vacuum(ImageDaoProgress *progress)
 {
   QMutexLocker writeLock(m_conn.writeLock());
   m_conn.exec("VACUUM", SRC_LOCATION);
-  qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
+  qInfo("Vacuum complete");
+
+  emit progress->complete();
 }
 
 QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool deletedValue)
@@ -508,9 +512,15 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
   }
 }
 
-void ImageDao::fixImageMetaData(ImageProcessStatus *status)
+void ImageDao::fixImageMetaData(ImageDaoProgress *progress)
 {
-  QThreadPool::globalInstance()->start(new FixImageMetaDataTask(status));
+  updateImageMetaDataAll(progress);
+}
+
+void ImageDao::backgroundTask(const QString &name, ImageDaoProgress *progress)
+{
+  emit progress->progress(0);
+  emit deferredBackgroundTask(name, progress);
 }
 
 static bool greaterThan(const QSize &a, const QSize &b) {
@@ -720,6 +730,11 @@ void ImageDaoDeferredWriter::endWrite() {
   }
 }
 
+void ImageDaoDeferredWriter::backgroundTask(const QString &name, ImageDaoProgress *syncPoint)
+{
+  QMetaObject::invokeMethod(ImageDao::instance(), name.toLatin1().constData(), Qt::DirectConnection, Q_ARG(ImageDaoProgress *, syncPoint));
+}
+
 void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString &tag)
 {
   startWrite();
@@ -757,11 +772,6 @@ void ImageDaoDeferredWriter::updateDeleted(const QList<QObject *> &irefs, bool d
       ps.exec(SRC_LOCATION);
     }
   }
-}
-
-void ImageDaoDeferredWriter::sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData) {
-  endWrite();
-  emit syncPoint->sync(userData);
 }
 
 void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)

@@ -66,7 +66,6 @@ int main(int argc, char *argv[])
   ImageDao::setDatabaseFilename(thumper.databaseFilename());
 
   qmlRegisterUncreatableType<Thumper>("thumper", 1, 0, "Thumper", QString("Must be created before QML engine starts"));
-  qmlRegisterType<ImageProcessStatus>("thumper", 1, 0, "ImageProcessStatus");
   qmlRegisterType<ImageRef>("thumper", 1, 0, "ImageRef");
   qmlRegisterType<ImageProcessor>("thumper", 1, 0, "ImageProcessor");
   qmlRegisterSingletonType<ImageDao>("thumper", 1, 0, "ImageDao",
@@ -74,7 +73,7 @@ int main(int argc, char *argv[])
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
   qmlRegisterType<FileUtils>("thumper", 1, 0, "FileUtils");
-  qmlRegisterType<ImageDaoSyncPoint>("thumper", 1, 0, "ImageDaoSyncPoint");
+  qmlRegisterType<ImageDaoProgress>("thumper", 1, 0, "ImageDaoProgress");
   //qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
   //qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
 

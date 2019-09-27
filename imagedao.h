@@ -29,11 +29,12 @@ struct RawImageQuery {
   QImage decode(const QSize &size = {});
 };
 
-class ImageDaoSyncPoint: public QObject {
+class ImageDaoProgress: public QObject {
   Q_OBJECT
 public:
 signals:
-  void sync(const QVariant &userData);
+  void progress(qreal value);
+  void complete();
 };
 
 class ImageDaoDeferredWriter : public QObject {
@@ -46,14 +47,15 @@ class ImageDaoDeferredWriter : public QObject {
 public:
   ImageDaoDeferredWriter(SQLiteConnection &&conn, QObject *parent = nullptr);
   virtual ~ImageDaoDeferredWriter();
+
 private slots:
   void endWrite();
-public slots:
+public slots:  
+  void backgroundTask(const QString &name, ImageDaoProgress *progress);
+
   void addTag(const QList<QObject *> &irefs, const QString &tag);
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
-  void sync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
-
   void writeImage(const QUrl &url, const QByteArray &data);
 signals:
   void writeComplete(const QUrl &url, quint64 fileId);
@@ -104,22 +106,28 @@ public:
   Q_INVOKABLE ImageRef *createImageRef(qint64 id);
   Q_INVOKABLE void compressImages(const QList<QObject *> &irefs);
 
-  Q_INVOKABLE void purgeDeletedImages();
-  Q_INVOKABLE void vacuum();
+
   Q_INVOKABLE QList<QObject *> updateDeleted(const QList<QObject *> &irefs, bool deleted);
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
-  Q_INVOKABLE void fixImageMetaData(ImageProcessStatus *status);
+
+  Q_INVOKABLE void backgroundTask(const QString &name, ImageDaoProgress *progress);
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 
   static QString imageHash(const QByteArray &data);
   static ImageDao *instance();
+
+public slots:
+  void fixImageMetaData(ImageDaoProgress *progress);
+  void purgeDeletedImages(ImageDaoProgress *progress);
+  void vacuum(ImageDaoProgress *progress);
 signals:
+  void deferredBackgroundTask(const QString &name, ImageDaoProgress *progress);
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
-  void deferredSync(ImageDaoSyncPoint *syncPoint, const QVariant &userData);
+  void deferredSync(ImageDaoProgress *syncPoint, const QVariant &userData);
 
   void deferredWriteImage(const QUrl &url, const QByteArray &data);
   void writeComplete(const QUrl &url, qint64 id);

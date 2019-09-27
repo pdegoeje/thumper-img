@@ -245,34 +245,29 @@ Popup {
         RowLayout {
           Button {
             id: fixMetaData
-            ImageProcessStatus {
-              id: statusUpdate
-              onUpdate: {
-                fixStatus.text = "Processed %1 images".arg((fractionComplete).toFixed(0))
-              }
-              onComplete: {
-                fixStatus.text = "Complete"
+            text: "Fix image metadata"
+            onClicked: ImageDao.backgroundTask("fixImageMetaData", backgroundProgress);
+          }
+          Label {
+            Connections {
+              target: backgroundProgress
+              onProgress: {
+                fixStatus.text = "%1 images processed".arg(value)
               }
             }
 
-            text: "Fix image metadata"
-            onClicked: ImageDao.fixImageMetaData(statusUpdate)
-          }
-          Label {
             id: fixStatus
           }
         }
 
         Button {
           text: "Delete images marked for removal"
-          onClicked: {
-            ImageDao.purgeDeletedImages()
-          }
+          onClicked: ImageDao.backgroundTask("purgeDeletedImages", backgroundProgress);
         }
 
         Button {
           text: "Vacuum Database"
-          onClicked: ImageDao.vacuum()
+          onClicked: ImageDao.backgroundTask("vacuum", backgroundProgress)
         }
       }
     }

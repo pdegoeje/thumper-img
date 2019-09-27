@@ -21,11 +21,6 @@ ApplicationWindow {
     }
   }
 
-  ImageDaoSyncPoint {
-    id: imageDaoSyncPoint
-    onSync: console.log("sync", userData)
-  }
-
   readonly property string settingsFilename: thumper.databaseFilename + ".config.json"
 
   property var persistentProperties: [
@@ -711,6 +706,23 @@ ApplicationWindow {
         onClicked: {
           actionAddTag(effectiveSelectionModel, tag)
         }
+      }
+
+      ImageDaoProgress {
+        id: backgroundProgress
+        onProgress: {
+          busyIndicator.running = true
+        }
+
+        onComplete: busyIndicator.running = false
+      }
+
+      BusyIndicator {
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        id: busyIndicator
+        running: false
+        z: 1000
       }
     }
   }

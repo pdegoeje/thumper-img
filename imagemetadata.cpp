@@ -217,7 +217,7 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   return true;
 }
 
-void FixImageMetaDataTask::run() {
+void updateImageMetaDataAll(ImageDaoProgress *progress) {
   ImageDao *dao = ImageDao::instance();
 
   SQLiteConnection conn = dao->connPool()->open();
@@ -232,15 +232,15 @@ void FixImageMetaDataTask::run() {
   conn.exec("DELETE FROM thumb1280");
   {
     auto ps = conn.prepare("SELECT id FROM image ORDER BY id");
-    qreal progress = 0.0;
+    qreal imageCount = 0;
     while(ps.step(SRC_LOCATION)) {
       qint64 id = ps.resultInteger(0);
 
       RawImageQuery riq(conn, id);
       updateImageMetaData(&conn, riq.data, id);
-      emit status->update({}, ++progress);
+      emit progress->progress(++imageCount);
     }
-    emit status->complete();
+    emit progress->complete();
   }
 
   conn.exec("COMMIT", SRC_LOCATION);
