@@ -15,6 +15,8 @@ public:
   explicit Thumper(QObject *parent = nullptr);
 
   QString databaseFilename() const { return m_databaseFilename; }
+  Q_INVOKABLE QString databaseAbsolutePath() const;
+  Q_INVOKABLE QString databaseRelativePath(const QString &path) const;
 signals:
 
 public slots:

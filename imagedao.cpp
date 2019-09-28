@@ -22,6 +22,7 @@
 #include <QThreadPool>
 #include <QCryptographicHash>
 #include <QPainter>
+#include <QDir>
 
 ImageDao *ImageDao::m_instance;
 QString ImageDao::m_databaseFilename = QStringLiteral("default.imgdb");
@@ -457,7 +458,10 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     QString basename = QStringLiteral("%1_%2").arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
     clipBoardData.append(basename);
 
-    QString filename = QStringLiteral("%1%2").arg(path).arg(basename);
+    QString extension = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
+    QDir dir(path);
+    dir.mkpath(QStringLiteral("."));
+    QString filename = dir.filePath(basename).append('.').append(extension);
 
     if(reqSize.isValid()) {
       QImage image = reader.read();
@@ -471,10 +475,8 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
         image = surface;
       }
 
-      filename += QStringLiteral(".jpg");
-      image.save(filename, "jpg", 100);
+      image.save(filename, "jpeg", 100);
     } else {
-      filename += QString::asprintf(".%s", format.constData());
       QFile file(filename);
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         file.write(riq.data);

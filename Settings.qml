@@ -157,6 +157,10 @@ Popup {
           }
         }
 
+        Label {
+          text: "Images will be exported to %1".arg(thumper.databaseRelativePath(pathPrefix))
+        }
+
         RowLayout {
           Label {
             text: "Render size"

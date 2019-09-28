@@ -95,7 +95,7 @@ ApplicationWindow {
   property bool gridShowImageIds: false
   property int duplicateSearchDistance: 4
   property bool showHiddenImages: false
-  property bool zoomOnHover: false
+  property bool zoomOnHover: true
   property string imageOverlayFormat: "$id$\n$width$x$height$ $size$KB $format$\n$tags$"
 
   property var viewIdToIndexMap: ({})
@@ -228,7 +228,7 @@ ApplicationWindow {
     if(renderFilenameToClipboard)
       flags |= ImageDao.FNAME_TO_CLIPBOARD
 
-    ImageDao.renderImages(effectiveSelectionModel, pathPrefix, renderSize, flags)
+    ImageDao.renderImages(effectiveSelectionModel, thumper.databaseRelativePath(pathPrefix), renderSize, flags)
   }
 
   ImageProcessor {
