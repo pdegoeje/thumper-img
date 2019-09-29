@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QDir>
 
+#include <functional>
+
 class Thumper : public QObject
 {
   Q_OBJECT
@@ -15,8 +17,10 @@ public:
   explicit Thumper(QObject *parent = nullptr);
 
   QString databaseFilename() const { return m_databaseFilename; }
-  Q_INVOKABLE QString databaseAbsolutePath() const;
-  Q_INVOKABLE QString databaseRelativePath(const QString &path) const;
+  Q_INVOKABLE QString databasePath() const;
+  Q_INVOKABLE QString resolveRelativePath(const QString &path) const;
+
+  static QString textTemplate(const QString &blueprint, std::function<QString (const QStringRef &tag)> tagFunc);
 signals:
 
 public slots:

@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.14.0"
+  title: "Thumper 1.15.0"
 
   FileUtils {
     id: fileUtils
@@ -68,7 +68,7 @@ ApplicationWindow {
     saveSettings()
   }
 
-  property string pathPrefix: "./"
+  property string pathPrefix: ""
 
   property int imagesPerRow: 6
   property var imagesPerRowModel: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 24, 32, 48, 64]
@@ -228,7 +228,7 @@ ApplicationWindow {
     if(renderFilenameToClipboard)
       flags |= ImageDao.FNAME_TO_CLIPBOARD
 
-    ImageDao.renderImages(effectiveSelectionModel, thumper.databaseRelativePath(pathPrefix), renderSize, flags)
+    ImageDao.renderImages(effectiveSelectionModel, thumper.resolveRelativePath(pathPrefix), renderSize, flags)
   }
 
   ImageProcessor {
@@ -316,6 +316,11 @@ ApplicationWindow {
           console.log(checkedTags)
           searchField.text = searchTagsModel.join(' ')
         }
+      }
+
+      ToolButton {
+        icon.source: "baseline_folder_open_white_24dp.png"
+        onClicked: fileUtils.openImageDatabase()
       }
 
       ToolButton {
@@ -747,13 +752,6 @@ ApplicationWindow {
   DropArea {
     anchors.fill: parent
     keys: ["text/plain", "text/uri-list"]
-
-    /*onEntered: {
-      console.log("Drop formats", drag.formats)
-      if(drag.hasText && processor.isUrl(drag.text) || drag.hasUrls) {
-        drag.accepted = true
-      }
-    }*/
 
     onDropped: {
       if(drop.hasText || drop.hasUrls) {

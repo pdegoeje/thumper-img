@@ -13,5 +13,6 @@
         <file>selection_box.png</file>
         <file>checkboard.png</file>
         <file>DottedBorder.qml</file>
+        <file>baseline_folder_open_white_24dp.png</file>
     </qresource>
 </RCC>

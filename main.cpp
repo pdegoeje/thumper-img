@@ -19,9 +19,9 @@ static QBasicMutex msgMutex;
 
 static void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
   {
-    QString output = QString::asprintf("%s %s (%s:%u, %s)\n",
+    QString output = QString::asprintf("%s %s\n",
                                        qUtf8Printable(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss.zzz"))),
-                                       qUtf8Printable(msg), context.file, context.line, context.function);
+                                       qUtf8Printable(msg));
 
     QMutexLocker lock(&msgMutex);
     msgLogFile.write(output.toUtf8());

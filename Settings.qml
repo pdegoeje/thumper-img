@@ -158,7 +158,7 @@ Popup {
         }
 
         Label {
-          text: "Images will be exported to %1".arg(thumper.databaseRelativePath(pathPrefix))
+          text: "Images will be exported to %1".arg(thumper.resolveRelativePath(pathPrefix))
         }
 
         RowLayout {

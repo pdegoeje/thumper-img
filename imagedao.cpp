@@ -439,6 +439,13 @@ QList<QObject *> ImageDao::updateDeleted(const QList<QObject *> &irefs, bool del
   return result;
 }
 
+static QString formatToExtension(QString format) {
+  if(format == QStringLiteral("jpeg")) {
+    return QStringLiteral("jpg");
+  }
+
+  return format;
+}
 
 void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags)
 {
@@ -458,7 +465,8 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     QString basename = QStringLiteral("%1_%2").arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
     clipBoardData.append(basename);
 
-    QString extension = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
+    QString effectiveFormat = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
+    QString extension = formatToExtension(effectiveFormat);
     QDir dir(path);
     dir.mkpath(QStringLiteral("."));
     QString filename = dir.filePath(basename).append('.').append(extension);
@@ -475,7 +483,7 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
         image = surface;
       }
 
-      image.save(filename, "jpeg", 100);
+      image.save(filename, "jpeg", 95);
     } else {
       QFile file(filename);
       if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {

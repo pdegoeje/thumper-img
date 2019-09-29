@@ -1,4 +1,5 @@
 #include "imageref.h"
+#include "thumper.h"
 
 ImageRef::ImageRef(QObject *parent) : QObject(parent) {
   connect(this, &ImageRef::overlayFormatChanged, this, &ImageRef::overlayStringChanged);
@@ -12,46 +13,23 @@ QStringList ImageRef::tags() const
 
 QString ImageRef::overlayString() const
 {
-  QString output;
-
-  int startIndex = 0;
-  while(true) {
-    int nextIndex = m_overlayFormat.indexOf('$', startIndex);
-    if(nextIndex != -1) {
-      // start of variable
-      output.append(m_overlayFormat.midRef(startIndex, nextIndex - startIndex));
+  return Thumper::textTemplate(m_overlayFormat, [&](const QStringRef &tag){
+    if(tag == QStringLiteral("id")) {
+      return QString::number(m_fileId);
+    } else if(tag == QStringLiteral("width")) {
+      return QString::number(m_size.width());
+    } else if(tag == QStringLiteral("height")) {
+      return QString::number(m_size.height());
+    } else if(tag == QStringLiteral("size")) {
+      return QString::number(m_fileSize / 1000);
+    } else if(tag == QStringLiteral("tags")) {
+      return tags().join(' ');
+    } else if(tag == QStringLiteral("format")) {
+      return m_format;
+    } else if(tag == QStringLiteral("url")) {
+      return m_url;
     } else {
-      output.append(m_overlayFormat.midRef(startIndex));
-      break;
+      return QStringLiteral("$%1$").arg(tag);
     }
-
-    startIndex = nextIndex + 1;
-    nextIndex = m_overlayFormat.indexOf('$', startIndex);
-    if(nextIndex != -1) {
-      auto variable = m_overlayFormat.midRef(startIndex, nextIndex - startIndex);
-      if(variable == QStringLiteral("id")) {
-        output.append(QString::number(m_fileId));
-      } else if(variable == QStringLiteral("width")) {
-        output.append(QString::number(m_size.width()));
-      } else if(variable == QStringLiteral("height")) {
-        output.append(QString::number(m_size.height()));
-      } else if(variable == QStringLiteral("size")) {
-        output.append(QString::number(m_fileSize / 1000));
-      } else if(variable == QStringLiteral("tags")) {
-        output.append(tags().join(' '));
-      } else if(variable == QStringLiteral("format")) {
-        output.append(m_format);
-      } else if(variable == QStringLiteral("url")) {
-        output.append(m_url);
-      } else {
-        output.append(QStringLiteral("?%1?").arg(variable));
-      }
-    } else {
-      output.append(m_overlayFormat.midRef(startIndex));
-      break;
-    }
-    startIndex = nextIndex + 1;
-  }
-
-  return output;
+  });
 }
