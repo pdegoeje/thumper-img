@@ -29,6 +29,13 @@ struct RawImageQuery {
   QImage decode(const QSize &size = {});
 };
 
+struct ImageRenderContext {
+  QList<QObject *> irefs;
+  QString path;
+  QSize size;
+  int flags;
+};
+
 class ImageDaoDeferredWriter : public QObject {
   Q_OBJECT
 
@@ -52,6 +59,7 @@ public slots:
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
   void writeImage(const QUrl &url, const QByteArray &data);
+  void renderImages(const ImageRenderContext &ric);
 
   void task_fixImageMetaData();
   void task_purgeDeletedImages();
@@ -61,6 +69,8 @@ signals:
   void busyChanged(bool busyState);
 };
 
+
+Q_DECLARE_METATYPE(ImageRenderContext)
 
 class ImageDao : public QObject
 {
@@ -129,7 +139,10 @@ signals:
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
-  void deferredWriteImage(const QUrl &url, const QByteArray &data);
+
+  void deferredRenderImages(const ImageRenderContext &ric);
+
+  void deferredWriteImage(const QUrl &url, const QByteArray &data);  
   void writeComplete(const QUrl &url, qint64 id);
 
   void busyChanged();

@@ -38,12 +38,15 @@ ImageDao::ImageDao(QObject *parent) :
   m_connPool(m_databaseFilename, SQLITE_OPEN_PRIVATECACHE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE),
   m_conn(m_connPool.open())
 {
+  qRegisterMetaType<ImageRenderContext>();
+
   auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
   connect(this, &ImageDao::deferredBackgroundTask, idfw, &ImageDaoDeferredWriter::backgroundTask);
   connect(this, &ImageDao::deferredAddTag, idfw, &ImageDaoDeferredWriter::addTag);
   connect(this, &ImageDao::deferredRemoveTag, idfw, &ImageDaoDeferredWriter::removeTag);
   connect(this, &ImageDao::deferredUpdateDeleted, idfw, &ImageDaoDeferredWriter::updateDeleted);
   connect(this, &ImageDao::deferredWriteImage, idfw, &ImageDaoDeferredWriter::writeImage);
+  connect(this, &ImageDao::deferredRenderImages, idfw, &ImageDaoDeferredWriter::renderImages);
   connect(idfw, &ImageDaoDeferredWriter::busyChanged, this, &ImageDao::setBusy);
   connect(idfw, &ImageDaoDeferredWriter::writeComplete, this, &ImageDao::writeComplete);
 
@@ -450,58 +453,9 @@ static QString formatToExtension(QString format) {
 
 void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags)
 {
-  QSize reqSize(requestedSize, requestedSize);
-
-  QStringList clipBoardData;
-  auto conn = m_connPool.open();
-
-  for(QObject *rptr : irefs) {
-    ImageRef *ref = qobject_cast<ImageRef *>(rptr);
-
-    RawImageQuery riq(conn, ref->m_fileId);
-    QBuffer buffer(&riq.data);
-    QImageReader reader(&buffer);
-    QByteArray format = reader.format();
-
-    QString basename = QStringLiteral("%1_%2").arg(ref->tags().join('_')).arg(ref->m_fileId);
-    clipBoardData.append(basename);
-
-    QString effectiveFormat = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
-    QString extension = formatToExtension(effectiveFormat);
-    QDir dir(path);
-    dir.mkpath(QStringLiteral("."));
-    QString filename = dir.filePath(basename).append('.').append(extension);
-
-    if(reqSize.isValid()) {
-      QImage image = reader.read();
-      image = image.scaled(reqSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-      if(flags & PAD_TO_FIT) {
-        QImage surface(reqSize, QImage::Format_RGB32);
-        surface.fill(Qt::black);
-        QPainter painter(&surface);
-        painter.drawImage((surface.width() - image.width()) / 2, (surface.height() - image.height()) / 2, image);
-        image = surface;
-      }
-
-      image.save(filename, "jpeg", 95);
-    } else {
-      QFile file(filename);
-      if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        file.write(riq.data);
-      }
-    }
-
-    qInfo() << SRC_LOCATION << "Rendering image:" << filename;
-  }
-
-  if(flags & FNAME_TO_CLIPBOARD) {
-    QClipboard *cb = QGuiApplication::clipboard();
-    cb->setText(clipBoardData.join('\n'));
-  }
+  ImageRenderContext irc { irefs, path, QSize(requestedSize, requestedSize), flags };
+  emit deferredRenderImages(irc);
 }
-
-
 
 void ImageDao::backgroundTask(const QString &name)
 {
@@ -824,6 +778,59 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
   endWrite();
 
   emit writeComplete(url, last_id);
+}
+
+void ImageDaoDeferredWriter::renderImages(const ImageRenderContext &ric)
+{
+  startBusy();
+
+  const QSize &reqSize = ric.size;
+
+  QStringList clipBoardData;
+  for(QObject *rptr : ric.irefs) {
+    ImageRef *ref = qobject_cast<ImageRef *>(rptr);
+
+    RawImageQuery riq(m_conn, ref->m_fileId);
+    QBuffer buffer(&riq.data);
+    QImageReader reader(&buffer);
+    QByteArray format = reader.format();
+
+    QString basename = QStringLiteral("%1_%2").arg(ref->tags().join('_')).arg(ref->m_fileId);
+    clipBoardData.append(basename);
+
+    QString effectiveFormat = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
+    QString extension = formatToExtension(effectiveFormat);
+    QDir dir(ric.path);
+    dir.mkpath(QStringLiteral("."));
+    QString filename = dir.filePath(basename).append('.').append(extension);
+
+    if(reqSize.isValid()) {
+      QImage image = reader.read();
+      image = image.scaled(reqSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+      if(ric.flags & ImageDao::PAD_TO_FIT) {
+        QImage surface(reqSize, QImage::Format_RGB32);
+        surface.fill(Qt::black);
+        QPainter painter(&surface);
+        painter.drawImage((surface.width() - image.width()) / 2, (surface.height() - image.height()) / 2, image);
+        image = surface;
+      }
+
+      image.save(filename, "jpeg", 95);
+    } else {
+      QFile file(filename);
+      if(file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        file.write(riq.data);
+      }
+    }
+
+    qInfo() << SRC_LOCATION << "Rendering image:" << filename;
+  }
+
+  if(ric.flags & ImageDao::FNAME_TO_CLIPBOARD) {
+    QClipboard *cb = QGuiApplication::clipboard();
+    cb->setText(clipBoardData.join('\n'));
+  }
 }
 
 
