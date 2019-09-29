@@ -75,25 +75,28 @@ Popup {
     Image {
       id: content
       
-      asynchronous: true
-      
-      //anchors.centerIn: parent
-      
-      //sourceSize.width: window.width
-      //sourceSize.height: window.height
-      
       opacity: (status == Image.Ready) ? 1 : 0
       
+      asynchronous: true
       smooth: true
-      //width: sourceSize.width
-      //height: sourceSize.height
-      //fillMode: Image.PreserveAspectCrop
+      mipmap: true
       source: "image://thumper/" + lightbox.image.fileId
       
       onStatusChanged: {
         if(status === Image.Ready) {
-          flickable.contentX = (content.width - flickable.width) / 2
-          flickable.contentY = (content.height - flickable.height) / 2
+          var scaleX = implicitWidth / window.width
+          var scaleY = implicitHeight / window.height
+
+          var scaleF = scaleX < scaleY ? scaleX : scaleY
+          if(scaleF < 1) {
+            scaleF = 1
+          }
+
+          width = implicitWidth / scaleF
+          height = implicitHeight / scaleF
+
+          flickable.contentX = (width - flickable.implicitWidth) / 2
+          flickable.contentY = (height - flickable.implicitHeight) / 2
 
           flickable.forceActiveFocus()
         }
