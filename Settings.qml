@@ -250,28 +250,18 @@ Popup {
           Button {
             id: fixMetaData
             text: "Fix image metadata"
-            onClicked: ImageDao.backgroundTask("fixImageMetaData", backgroundProgress);
-          }
-          Label {
-            Connections {
-              target: backgroundProgress
-              onProgress: {
-                fixStatus.text = "%1 images processed".arg(value)
-              }
-            }
-
-            id: fixStatus
+            onClicked: ImageDao.backgroundTask("fixImageMetaData");
           }
         }
 
         Button {
           text: "Delete images marked for removal"
-          onClicked: ImageDao.backgroundTask("purgeDeletedImages", backgroundProgress);
+          onClicked: ImageDao.backgroundTask("purgeDeletedImages");
         }
 
         Button {
           text: "Vacuum Database"
-          onClicked: ImageDao.backgroundTask("vacuum", backgroundProgress)
+          onClicked: ImageDao.backgroundTask("vacuum")
         }
       }
     }

@@ -73,9 +73,6 @@ int main(int argc, char *argv[])
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
   qmlRegisterType<FileUtils>("thumper", 1, 0, "FileUtils");
-  qmlRegisterType<ImageDaoProgress>("thumper", 1, 0, "ImageDaoProgress");
-  //qmlRegisterType<Tag>("thumper", 1, 0, "TagModel");
-  //qmlRegisterType<TagListModel>("thumper", 1, 0, "TagModelList");
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());

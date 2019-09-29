@@ -713,20 +713,11 @@ ApplicationWindow {
         }
       }
 
-      ImageDaoProgress {
-        id: backgroundProgress
-        onProgress: {
-          busyIndicator.running = true
-        }
-
-        onComplete: busyIndicator.running = false
-      }
-
       BusyIndicator {
         parent: Overlay.overlay
         anchors.centerIn: parent
         id: busyIndicator
-        running: false
+        running: ImageDao.busy
         z: 1000
       }
     }

@@ -44,6 +44,7 @@ ImageDao::ImageDao(QObject *parent) :
   connect(this, &ImageDao::deferredRemoveTag, idfw, &ImageDaoDeferredWriter::removeTag);
   connect(this, &ImageDao::deferredUpdateDeleted, idfw, &ImageDaoDeferredWriter::updateDeleted);
   connect(this, &ImageDao::deferredWriteImage, idfw, &ImageDaoDeferredWriter::writeImage);
+  connect(idfw, &ImageDaoDeferredWriter::busyChanged, this, &ImageDao::setBusy);
   connect(idfw, &ImageDaoDeferredWriter::writeComplete, this, &ImageDao::writeComplete);
 
   connect(&m_writeThread, &QThread::finished, idfw, &QObject::deleteLater);
@@ -462,7 +463,7 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
     QImageReader reader(&buffer);
     QByteArray format = reader.format();
 
-    QString basename = QStringLiteral("%1_%2").arg(ref->m_tags.toList().join('_')).arg(ref->m_fileId);
+    QString basename = QStringLiteral("%1_%2").arg(ref->tags().join('_')).arg(ref->m_fileId);
     clipBoardData.append(basename);
 
     QString effectiveFormat = reqSize.isValid() ? QStringLiteral("jpeg") : ref->m_format;
@@ -502,9 +503,9 @@ void ImageDao::renderImages(const QList<QObject *> &irefs, const QString &path, 
 
 
 
-void ImageDao::backgroundTask(const QString &name, ImageDaoProgress *progress)
+void ImageDao::backgroundTask(const QString &name)
 {
-  emit deferredBackgroundTask(name, progress);
+  emit deferredBackgroundTask(name);
 }
 
 static bool greaterThan(const QSize &a, const QSize &b) {
@@ -688,14 +689,25 @@ ImageDao *ImageDao::instance()
   return m_instance;
 }
 
+void ImageDao::setBusy(bool busyState)
+{
+  if(m_busy != busyState) {
+    m_busy = busyState;
+    emit busyChanged();
+  }
+}
+
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
+    startBusy();
+
     m_conn.writeLock()->lock();
     m_conn.exec("BEGIN", SRC_LOCATION);
     m_inTransaction = true;
     QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endWrite);
   }
 }
+
 
 ImageDaoDeferredWriter::ImageDaoDeferredWriter(SQLiteConnection &&conn, QObject *parent) : m_conn(std::move(conn)), QObject(parent)
 {
@@ -714,11 +726,31 @@ void ImageDaoDeferredWriter::endWrite() {
   }
 }
 
-void ImageDaoDeferredWriter::backgroundTask(const QString &name, ImageDaoProgress *progress)
+void ImageDaoDeferredWriter::startBusy()
 {
-  emit progress->progress(0);
-  QMetaObject::invokeMethod(this, name.toLatin1().constData(), Qt::DirectConnection, Q_ARG(ImageDaoProgress *, progress));
-  emit progress->complete();
+  if(!m_busy) {
+    m_busy = true;
+    emit busyChanged(m_busy);
+    QTimer::singleShot(0, this, &ImageDaoDeferredWriter::endBusy);
+  }
+}
+
+
+void ImageDaoDeferredWriter::endBusy()
+{
+  if(m_busy) {
+    m_busy = false;
+    emit busyChanged(m_busy);
+  }
+}
+
+void ImageDaoDeferredWriter::backgroundTask(const QString &name)
+{
+  QString task("task_");
+  task.append(name);
+
+  startBusy();
+  QMetaObject::invokeMethod(this, qUtf8Printable(task), Qt::DirectConnection);
 }
 
 void ImageDaoDeferredWriter::addTag(const QList<QObject *> &irefs, const QString &tag)
@@ -795,7 +827,7 @@ void ImageDaoDeferredWriter::writeImage(const QUrl &url, const QByteArray &data)
 }
 
 
-void ImageDaoDeferredWriter::purgeDeletedImages(ImageDaoProgress *progress)
+void ImageDaoDeferredWriter::task_purgeDeletedImages()
 {
   startWrite();
   m_conn.exec("DELETE FROM store WHERE id IN (SELECT id FROM image WHERE deleted = 1)", SRC_LOCATION);
@@ -805,7 +837,7 @@ void ImageDaoDeferredWriter::purgeDeletedImages(ImageDaoProgress *progress)
   qInfo("Purged %d images from the database", sqlite3_changes(m_conn.m_db));
 }
 
-void ImageDaoDeferredWriter::vacuum(ImageDaoProgress *progress)
+void ImageDaoDeferredWriter::task_vacuum()
 {
   endWrite();
 
@@ -814,9 +846,9 @@ void ImageDaoDeferredWriter::vacuum(ImageDaoProgress *progress)
   qInfo("Vacuum complete");
 }
 
-void ImageDaoDeferredWriter::fixImageMetaData(ImageDaoProgress *progress)
+void ImageDaoDeferredWriter::task_fixImageMetaData()
 {
-  updateImageMetaDataAll(progress);
+  updateImageMetaDataAll();
 }
 
 

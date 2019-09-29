@@ -217,7 +217,7 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   return true;
 }
 
-void updateImageMetaDataAll(ImageDaoProgress *progress) {
+void updateImageMetaDataAll() {
   ImageDao *dao = ImageDao::instance();
 
   SQLiteConnection conn = dao->connPool()->open();
@@ -238,7 +238,7 @@ void updateImageMetaDataAll(ImageDaoProgress *progress) {
 
       RawImageQuery riq(conn, id);
       updateImageMetaData(&conn, riq.data, id);
-      emit progress->progress(++imageCount);
+      //emit progress->progress(++imageCount);
     }
   }
 

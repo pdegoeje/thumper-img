@@ -29,46 +29,43 @@ struct RawImageQuery {
   QImage decode(const QSize &size = {});
 };
 
-class ImageDaoProgress: public QObject {
-  Q_OBJECT
-public:
-signals:
-  void progress(qreal value);
-  void complete();
-};
-
 class ImageDaoDeferredWriter : public QObject {
   Q_OBJECT
 
   void startWrite();
+  void startBusy();
 
   SQLiteConnection m_conn;
   bool m_inTransaction = false;
+  bool m_busy = false;
 public:
   ImageDaoDeferredWriter(SQLiteConnection &&conn, QObject *parent = nullptr);
   virtual ~ImageDaoDeferredWriter();
 
 private slots:
   void endWrite();
+  void endBusy();
 public slots:  
-  void backgroundTask(const QString &name, ImageDaoProgress *progress);
+  void backgroundTask(const QString &name);
 
   void addTag(const QList<QObject *> &irefs, const QString &tag);
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
   void writeImage(const QUrl &url, const QByteArray &data);
 
-  void fixImageMetaData(ImageDaoProgress *progress);
-  void purgeDeletedImages(ImageDaoProgress *progress);
-  void vacuum(ImageDaoProgress *progress);
+  void task_fixImageMetaData();
+  void task_purgeDeletedImages();
+  void task_vacuum();
 signals:
   void writeComplete(const QUrl &url, quint64 fileId);
+  void busyChanged(bool busyState);
 };
 
 
 class ImageDao : public QObject
 {
   Q_OBJECT
+  Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 
   static ImageDao *m_instance;
   static QString m_databaseFilename;
@@ -80,6 +77,8 @@ class ImageDao : public QObject
   QMap<quint64, ImageRef *> m_refMap;
   QReadWriteLock m_refMapLock;
   QImage makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize);
+
+  bool m_busy = false;
 public:
   enum RenderFlags {
     PAD_TO_FIT = 0x01,
@@ -115,24 +114,25 @@ public:
 
   Q_INVOKABLE void renderImages(const QList<QObject *> &irefs, const QString &path, int requestedSize, int flags);
 
-  Q_INVOKABLE void backgroundTask(const QString &name, ImageDaoProgress *progress);
+  Q_INVOKABLE void backgroundTask(const QString &name);
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 
   static QString imageHash(const QByteArray &data);
   static ImageDao *instance();
 
+  bool busy() const { return m_busy; }
 public slots:
-
+  void setBusy(bool busyState);
 signals:
-  void deferredBackgroundTask(const QString &name, ImageDaoProgress *progress);
+  void deferredBackgroundTask(const QString &name);
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
-  void deferredSync(ImageDaoProgress *syncPoint, const QVariant &userData);
-
   void deferredWriteImage(const QUrl &url, const QByteArray &data);
   void writeComplete(const QUrl &url, qint64 id);
+
+  void busyChanged();
 public slots:
 };
 

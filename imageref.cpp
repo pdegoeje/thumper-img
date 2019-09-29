@@ -8,7 +8,9 @@ ImageRef::ImageRef(QObject *parent) : QObject(parent) {
 
 QStringList ImageRef::tags() const
 {
-  return m_tags.toList();
+  auto list = m_tags.toList();
+  list.sort();
+  return list;
 }
 
 QString ImageRef::overlayString() const
