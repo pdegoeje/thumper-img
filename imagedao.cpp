@@ -39,6 +39,7 @@ ImageDao::ImageDao(QObject *parent) :
   m_conn(m_connPool.open())
 {
   qRegisterMetaType<ImageRenderContext>();
+  qRegisterMetaType<QImage::Format>();
 
   auto idfw = new ImageDaoDeferredWriter(m_connPool.open());
   connect(this, &ImageDao::deferredBackgroundTask, idfw, &ImageDaoDeferredWriter::backgroundTask);
@@ -47,6 +48,8 @@ ImageDao::ImageDao(QObject *parent) :
   connect(this, &ImageDao::deferredUpdateDeleted, idfw, &ImageDaoDeferredWriter::updateDeleted);
   connect(this, &ImageDao::deferredWriteImage, idfw, &ImageDaoDeferredWriter::writeImage);
   connect(this, &ImageDao::deferredRenderImages, idfw, &ImageDaoDeferredWriter::renderImages);
+  connect(this, &ImageDao::deferredCompressImages, idfw, &ImageDaoDeferredWriter::compressImages);
+  connect(idfw, &ImageDaoDeferredWriter::updateImageData, this, &ImageDao::updateImageData);
   connect(idfw, &ImageDaoDeferredWriter::busyChanged, this, &ImageDao::setBusy);
   connect(idfw, &ImageDaoDeferredWriter::writeComplete, this, &ImageDao::writeComplete);
 
@@ -377,48 +380,47 @@ ImageRef *ImageDao::createImageRef(qint64 id)
 
 void ImageDao::compressImages(const QList<QObject *> &irefs)
 {
-  auto conn = m_connPool.open();
-  QMutexLocker writeLock(connPool()->writeLock());
+  emit deferredCompressImages(irefs);
+}
+
+void ImageDaoDeferredWriter::compressImages(const QList<QObject *> &irefs)
+{
+  startWrite();
 
   for(QObject *ptr : irefs) {
     if(auto iref = qobject_cast<ImageRef *>(ptr)) {
-      RawImageQuery riq(conn, iref->m_fileId);
+      RawImageQuery riq(m_conn, iref->m_fileId);
       QBuffer buffer(&riq.data);
       QImageReader reader(&buffer);
       QByteArray format = reader.format();
       if(format != "jpeg") {
         qDebug() << "Re-compressing" << iref->m_fileId;
         QImage image = reader.read();
+        auto pixFormat = image.format();
         QBuffer outputBuffer;
         image.save(&outputBuffer, "jpeg", 95);
         QByteArray data = outputBuffer.data();
         qDebug() << "New size" << data.length();
 
-        conn.exec("BEGIN");
         {
-          auto ps = conn.prepare("UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
+          auto ps = m_conn.prepare("UPDATE store SET image = ?1, hash = ?2 WHERE id = ?3");
 
           //SQLitePreparedStatement ps(idc.conn, );
           ps.bind(1, data);
-          ps.bind(2, imageHash(data));
+          ps.bind(2, ImageDao::imageHash(data));
           ps.bind(3, iref->m_fileId);
           ps.exec(SRC_LOCATION);
         }
 
         {
-          auto ps = conn.prepare("UPDATE image SET filesize = ?1, format = ?2 WHERE id = ?3");
+          auto ps = m_conn.prepare("UPDATE image SET filesize = ?1, format = ?2 WHERE id = ?3");
           ps.bind(1, data.size());
           ps.bind(2, QStringLiteral("jpeg"));
           ps.bind(3, iref->m_fileId);
           ps.exec(SRC_LOCATION);
         }
-        conn.exec("COMMIT");
 
-        iref->m_format = QStringLiteral("jpeg");
-        iref->m_fileSize = data.size();
-
-        // force update
-        emit iref->tagsChanged();
+        emit updateImageData(iref, QStringLiteral("jpeg"), data.size(), pixFormat);
       }
     }
   }
@@ -649,6 +651,11 @@ void ImageDao::setBusy(bool busyState)
     m_busy = busyState;
     emit busyChanged();
   }
+}
+
+void ImageDao::updateImageData(ImageRef *update, const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat)
+{
+  update->updateImageData(newFormat, newFileSize, newPixelFormat);
 }
 
 void ImageDaoDeferredWriter::startWrite() {

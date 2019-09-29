@@ -35,3 +35,12 @@ QString ImageRef::overlayString() const
     }
   });
 }
+
+void ImageRef::updateImageData(const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat)
+{
+  this->m_fileSize = newFileSize;
+  this->m_format = newFormat;
+  this->m_pixelFormat = newPixelFormat;
+
+  emit overlayStringChanged();
+}

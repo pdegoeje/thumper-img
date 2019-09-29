@@ -48,16 +48,17 @@ class ImageDaoDeferredWriter : public QObject {
 public:
   ImageDaoDeferredWriter(SQLiteConnection &&conn, QObject *parent = nullptr);
   virtual ~ImageDaoDeferredWriter();
-
 private slots:
   void endWrite();
   void endBusy();
 public slots:  
+
   void backgroundTask(const QString &name);
 
   void addTag(const QList<QObject *> &irefs, const QString &tag);
   void removeTag(const QList<QObject *> &irefs, const QString &tag);
   void updateDeleted(const QList<QObject *> &irefs, bool deleted);
+  void compressImages(const QList<QObject *> &irefs);
   void writeImage(const QUrl &url, const QByteArray &data);
   void renderImages(const ImageRenderContext &ric);
 
@@ -65,6 +66,7 @@ public slots:
   void task_purgeDeletedImages();
   void task_vacuum();
 signals:
+  void updateImageData(ImageRef *update, const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat);
   void writeComplete(const QUrl &url, quint64 fileId);
   void busyChanged(bool busyState);
 };
@@ -134,12 +136,13 @@ public:
   bool busy() const { return m_busy; }
 public slots:
   void setBusy(bool busyState);
+  void updateImageData(ImageRef *update, const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat);
 signals:
   void deferredBackgroundTask(const QString &name);
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);
   void deferredAddTag(const QList<QObject *> &irefs, const QString &tag);
   void deferredRemoveTag(const QList<QObject *> &irefs, const QString &tag);
-
+  void deferredCompressImages(const QList<QObject *> &irefs);
   void deferredRenderImages(const ImageRenderContext &ric);
 
   void deferredWriteImage(const QUrl &url, const QByteArray &data);  
