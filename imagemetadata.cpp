@@ -217,34 +217,6 @@ bool updateImageMetaData(SQLiteConnection *conn, const QByteArray &imageData, qu
   return true;
 }
 
-void updateImageMetaDataAll() {
-  ImageDao *dao = ImageDao::instance();
-
-  SQLiteConnection conn = dao->connPool()->open();
-  QMutexLocker lock(conn.writeLock());
-
-  conn.exec("BEGIN", SRC_LOCATION);
-  conn.exec("DELETE FROM thumb40");
-  conn.exec("DELETE FROM thumb80");
-  conn.exec("DELETE FROM thumb160");
-  conn.exec("DELETE FROM thumb320");
-  conn.exec("DELETE FROM thumb640");
-  conn.exec("DELETE FROM thumb1280");
-  {
-    auto ps = conn.prepare("SELECT id FROM image ORDER BY id");
-    qreal imageCount = 0;
-    while(ps.step(SRC_LOCATION)) {
-      qint64 id = ps.resultInteger(0);
-
-      RawImageQuery riq(conn, id);
-      updateImageMetaData(&conn, riq.data, id);
-      //emit progress->progress(++imageCount);
-    }
-  }
-
-  conn.exec("COMMIT", SRC_LOCATION);
-}
-
 static const uint64_t m1 = 0x5555555555555555; //binary: 0101...
 static const uint64_t m2 = 0x3333333333333333; //binary: 00110011..
 static const uint64_t m4 = 0x0f0f0f0f0f0f0f0f; //binary:  4 zeros,  4 ones ...

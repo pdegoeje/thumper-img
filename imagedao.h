@@ -62,6 +62,7 @@ public slots:
   void writeImage(const QUrl &url, const QByteArray &data);
   void renderImages(const ImageRenderContext &ric);
 
+  void task_clearThumbnailCache();
   void task_fixImageMetaData();
   void task_purgeDeletedImages();
   void task_vacuum();
@@ -88,7 +89,7 @@ class ImageDao : public QObject
   QThread m_writeThread;
   QMap<quint64, ImageRef *> m_refMap;
   QReadWriteLock m_refMapLock;
-  QImage makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize);
+  QImage makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize, volatile bool *cancelled);
 
   bool m_busy = false;
 public:
@@ -105,8 +106,6 @@ public:
   SQLiteConnectionPool *connPool() { return &m_connPool; }
 
   bool tableExists(const QString &table);
-
-  static void setDatabaseFilename(const QString &filename);
 
   Q_INVOKABLE void metaPut(const QString &key, const QVariant &val);
   Q_INVOKABLE QVariant metaGet(const QString &key);
@@ -130,6 +129,7 @@ public:
 
   QImage requestImage(qint64 id, const QSize &requestedSize, volatile bool *cancelled);
 
+  static void setDatabaseFilename(const QString &filename);
   static QString imageHash(const QByteArray &data);
   static ImageDao *instance();
 

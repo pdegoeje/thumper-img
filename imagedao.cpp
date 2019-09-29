@@ -490,7 +490,7 @@ static QSize scaleOverlap(const QSize &actualSize, const QSize &requestedSize) {
   }
 }
 
-QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize) {
+QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumbsize, volatile bool *cancelled) {
   QSize thumbSize(thumbsize, thumbsize);
 
   {
@@ -512,8 +512,16 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
   QImage input;
   QImage result;
 
+  if(*cancelled) {
+    return result;
+  }
+
   if(thumbsize < 1280 && greaterThanOrEqual(iref->size(), thumbSize * 4)) {
-    input = makeThumbnail(conn, iref, thumbsize * 2);
+    input = makeThumbnail(conn, iref, thumbsize * 2, cancelled);
+  } 
+
+  if(*cancelled) {
+    return result;
   }
 
   if(input.isNull()) {
@@ -539,8 +547,16 @@ QImage ImageDao::makeThumbnail(SQLiteConnection *conn, ImageRef *iref, int thumb
     result = input.scaled(newSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
   }
 
+  if(*cancelled) {
+    return result;
+  }
+
   QBuffer outputBuffer;
   result.save(&outputBuffer, "JPEG", 92);
+
+  if(*cancelled) {
+    return result;
+  }
 
   {
     QMutexLocker lock(conn->writeLock());
@@ -600,12 +616,14 @@ QImage ImageDao::requestImage(qint64 id, const QSize &requestedSize, volatile bo
           QByteArray thumbData = ps.resultBlobPointer(0);
           if(thumbData.isNull()) {
             ps.destroy();
-            //qDebug() << "Thumb does not exist" << iref->m_fileId << thumbSize << requestedSize << actualSize;
 
-            QImage thumbNail = makeThumbnail(&conn, iref, thumbSize.width());
-            result = thumbNail.scaled(scaleOverlap(thumbNail.size(), requestedSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            // construct thumbnail
+            QImage thumbNail = makeThumbnail(&conn, iref, thumbSize.width(), cancelled);
+            if(!thumbNail.isNull()) {
+              result = thumbNail.scaled(scaleOverlap(thumbNail.size(), requestedSize), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            }
           } else if(!*cancelled) {
-            //qDebug() << "Fastpath" << iref->m_fileId << thumbSize << requestedSize << actualSize;
+            // fast path
             QBuffer buffer(&thumbData);
             QImageReader imageReader(&buffer);
             imageReader.setScaledSize(scaleOverlap(imageReader.size(), requestedSize));
@@ -840,6 +858,16 @@ void ImageDaoDeferredWriter::renderImages(const ImageRenderContext &ric)
   }
 }
 
+void ImageDaoDeferredWriter::task_clearThumbnailCache()
+{
+  startWrite();
+  m_conn.exec("DELETE FROM thumb40");
+  m_conn.exec("DELETE FROM thumb80");
+  m_conn.exec("DELETE FROM thumb160");
+  m_conn.exec("DELETE FROM thumb320");
+  m_conn.exec("DELETE FROM thumb640");
+  m_conn.exec("DELETE FROM thumb1280");
+}
 
 void ImageDaoDeferredWriter::task_purgeDeletedImages()
 {
@@ -854,6 +882,7 @@ void ImageDaoDeferredWriter::task_purgeDeletedImages()
 void ImageDaoDeferredWriter::task_vacuum()
 {
   endWrite();
+  startBusy();
 
   QMutexLocker lock(m_conn.writeLock());
   m_conn.exec("VACUUM", SRC_LOCATION);
@@ -862,7 +891,15 @@ void ImageDaoDeferredWriter::task_vacuum()
 
 void ImageDaoDeferredWriter::task_fixImageMetaData()
 {
-  updateImageMetaDataAll();
+  startWrite();
+
+  auto ps = m_conn.prepare("SELECT id FROM image ORDER BY id");
+  while(ps.step(SRC_LOCATION)) {
+    qint64 id = ps.resultInteger(0);
+
+    RawImageQuery riq(m_conn, id);
+    updateImageMetaData(&m_conn, riq.data, id);
+  }
 }
 
 

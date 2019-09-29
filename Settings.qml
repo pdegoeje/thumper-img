@@ -216,12 +216,7 @@ Popup {
 
       ColumnLayout {
         Button {
-          text: "Open Image Database"
-          onClicked: fileUtils.openImageDatabase()
-        }
-
-        Button {
-          text: "Compress selected images to JPEG"
+          text: "Convert selected images to JPEG"
           onClicked: ImageDao.compressImages(effectiveSelectionModel)
         }
 
@@ -246,12 +241,14 @@ Popup {
           }
         }
 
-        RowLayout {
-          Button {
-            id: fixMetaData
-            text: "Fix image metadata"
-            onClicked: ImageDao.backgroundTask("fixImageMetaData");
-          }
+        Button {
+          text: "Clear thumbnail cache"
+          onClicked: ImageDao.backgroundTask("clearThumbnailCache");
+        }
+
+        Button {
+          text: "Rebuild image metadata"
+          onClicked: ImageDao.backgroundTask("fixImageMetaData");
         }
 
         Button {
@@ -260,7 +257,7 @@ Popup {
         }
 
         Button {
-          text: "Vacuum Database"
+          text: "Vacuum database"
           onClicked: ImageDao.backgroundTask("vacuum")
         }
       }
