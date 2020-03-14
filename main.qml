@@ -762,6 +762,7 @@ ApplicationWindow {
     sequence: StandardKey.FullScreen
     onActivated: {
       window.visibility = (window.visibility == Window.FullScreen) ? Window.Windowed : Window.FullScreen
+      console.log("Toggle Fullscreen")
     }
   }
 

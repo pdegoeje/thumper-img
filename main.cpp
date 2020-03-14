@@ -37,6 +37,7 @@ static void installFileLogging(const QString &logfile) {
   msgLogFile.setFileName(logfile);
   if(!msgLogFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
     fprintf(stderr, "Failed to open logfile: %s\n", qUtf8Printable(logfile));
+    return;
   } else {
     fprintf(stderr, "Log file: %s\n", qUtf8Printable(logfile));
   }
@@ -62,7 +63,10 @@ int main(int argc, char *argv[])
   file.makeAbsolute();
   thumper.m_databaseFilename = file.filePath();
 
+  qInfo() << "Initialize logging";
   installFileLogging(thumper.databaseFilename() + ".debug.log");
+
+  qInfo() << "Set database file name";
   ImageDao::setDatabaseFilename(thumper.databaseFilename());
 
   qmlRegisterUncreatableType<Thumper>("thumper", 1, 0, "Thumper", QString("Must be created before QML engine starts"));
@@ -73,6 +77,8 @@ int main(int argc, char *argv[])
 
   qmlRegisterType<QmlTaskListModel>("thumper", 1, 0, "QmlTaskListModel");
   qmlRegisterType<FileUtils>("thumper", 1, 0, "FileUtils");
+
+  qInfo() << "Start QML app engine";
 
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());
