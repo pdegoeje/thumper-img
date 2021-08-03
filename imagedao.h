@@ -69,6 +69,7 @@ public slots:
 signals:
   void updateImageData(ImageRef *update, const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat);
   void writeComplete(const QUrl &url, quint64 fileId);
+  void setClipboard(const QString &data);
   void busyChanged(bool busyState);
 };
 
@@ -137,6 +138,7 @@ public:
 public slots:
   void setBusy(bool busyState);
   void updateImageData(ImageRef *update, const QString &newFormat, qint64 newFileSize, QImage::Format newPixelFormat);
+  void setClipboard(const QString &data);
 signals:
   void deferredBackgroundTask(const QString &name);
   void deferredUpdateDeleted(const QList<QObject *> &irefs, bool deleted);

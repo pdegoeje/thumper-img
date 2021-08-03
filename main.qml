@@ -11,7 +11,7 @@ ApplicationWindow {
   visible: true
   width: 1280
   height: 720
-  title: "Thumper 1.16.0"
+  title: "Thumper 1.17.0"
 
   FileUtils {
     id: fileUtils
@@ -101,9 +101,10 @@ ApplicationWindow {
   ListModel {
     id: viewModel
   }
+
+  // lists of ImageRefs
   property var viewModelSimpleList: []
   property var allSimpleList: []
-
   property var selectionModel: []
   property var effectiveSelectionModel: {
     if(selectionModel.length > 0) {
@@ -780,9 +781,7 @@ ApplicationWindow {
     sequence: "Ctrl+D"
     onActivated: {
       console.log("Deselect")
-      for(var i = 0; i < viewModel.count; i++) {
-        viewModel.get(i).ref.selected = false
-      }
+      viewModelSimpleList.forEach(function(ref) { ref.selected = false })
       rebuildSelectionModel()
     }
   }
@@ -791,9 +790,7 @@ ApplicationWindow {
     sequence: "Ctrl+A"
     onActivated: {
       console.log("Select all")
-      for(var i = 0; i < viewModel.count; i++) {
-        viewModel.get(i).ref.selected = true
-      }
+      viewModelSimpleList.forEach(function(ref) { ref.selected = true })
       rebuildSelectionModel()
     }
   }
@@ -802,10 +799,7 @@ ApplicationWindow {
     sequence: "Ctrl+I"
     onActivated: {
       console.log("Invert Selection")
-      for(var i = 0; i < viewModel.count; i++) {
-        var ref = viewModel.get(i).ref
-        ref.selected = !ref.selected
-      }
+      viewModelSimpleList.forEach(function(ref) { ref.selected = !ref.selected })
       rebuildSelectionModel()
     }
   }

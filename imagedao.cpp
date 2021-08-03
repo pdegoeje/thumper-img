@@ -52,6 +52,7 @@ ImageDao::ImageDao(QObject *parent) :
   connect(idfw, &ImageDaoDeferredWriter::updateImageData, this, &ImageDao::updateImageData);
   connect(idfw, &ImageDaoDeferredWriter::busyChanged, this, &ImageDao::setBusy);
   connect(idfw, &ImageDaoDeferredWriter::writeComplete, this, &ImageDao::writeComplete);
+  connect(idfw, &ImageDaoDeferredWriter::setClipboard, this, &ImageDao::setClipboard);
 
   connect(&m_writeThread, &QThread::finished, idfw, &QObject::deleteLater);
   idfw->moveToThread(&m_writeThread);
@@ -676,6 +677,12 @@ void ImageDao::updateImageData(ImageRef *update, const QString &newFormat, qint6
   update->updateImageData(newFormat, newFileSize, newPixelFormat);
 }
 
+void ImageDao::setClipboard(const QString &data)
+{
+  QClipboard *cb = QGuiApplication::clipboard();
+  cb->setText(data);
+}
+
 void ImageDaoDeferredWriter::startWrite() {
   if(!m_inTransaction) {
     startBusy();
@@ -853,8 +860,7 @@ void ImageDaoDeferredWriter::renderImages(const ImageRenderContext &ric)
   }
 
   if(ric.flags & ImageDao::FNAME_TO_CLIPBOARD) {
-    QClipboard *cb = QGuiApplication::clipboard();
-    cb->setText(clipBoardData.join('\n'));
+    emit setClipboard(clipBoardData.join('\n'));
   }
 }
 
