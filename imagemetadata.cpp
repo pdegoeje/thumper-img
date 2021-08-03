@@ -282,21 +282,21 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
           hashToCluster[hash_i] = id;
           hashToCluster[hash_j] = id;
 
-          qDebug() << "create new cluster" << id << "hashi" << hex << hash_i << "hash_j" << hash_j << "dist" << distance;
+          qDebug() << "create new cluster" << id << "hashi" << Qt::hex << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster == End && jcluster != End) {
           // j already belongs to a cluster
           int id = jcluster->second;
           clusters[id].push_back(hash_i);
           hashToCluster[hash_i] = id;
 
-          qDebug() << "merge into j cluster" << id << "hashi" << hex << hash_i << "hash_j" << hash_j << "dist" << distance;
+          qDebug() << "merge into j cluster" << id << "hashi" << Qt::hex << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster != End && jcluster == End) {
           // i already belongs to a cluster
           int id = icluster->second;
           clusters[id].push_back(hash_j);
           hashToCluster[hash_j] = id;
 
-          qDebug() << "merge into i cluster" << id << "hashi" << hex << hash_i << "hash_j" << hash_j << "dist" << distance;
+          qDebug() << "merge into i cluster" << id << "hashi" << Qt::hex << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else if(icluster->second != jcluster->second) {
           // both belong to different clusters
           int idi = icluster->second;
@@ -314,7 +314,7 @@ static void findClusters(const std::vector<uint64_t> &hashes, HashToCluster &has
           // delete jcluster
           clusters.erase(idj);
 
-          qDebug() << "merge clusters" << idi << "and" << idj << hex << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
+          qDebug() << "merge clusters" << idi << "and" << idj << Qt::hex << "hashi" << hash_i << "hash_j" << hash_j << "dist" << distance;
         } else {
           // both belong to the same cluster already, nothing to do
         }
@@ -349,7 +349,7 @@ QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDistanc
           int id = nextClusterId++;
           hashToCluster[hash] = id;
           clusterToHashList[id].push_back(hash);
-          qDebug() << "create new cluster" << id << "for hash" << hex << hash;
+          qDebug() << "create new cluster" << id << "for hash" << Qt::hex << hash;
         }
 
         irefIter->second.push_back(iref);
@@ -373,7 +373,7 @@ QList<QObject *> findAllDuplicates(const QList<QObject *> &irefs, int maxDistanc
     // for each hash
     for(uint64_t h : p.second) {
       // for each iref
-      qDebug() << "  Hash" << hex << h;
+      qDebug() << "  Hash" << Qt::hex << h;
       for(auto irefptr : irefLookup[h]) {
 
         qDebug() << "    Iref" << irefptr->m_fileId;

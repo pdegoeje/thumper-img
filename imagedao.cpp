@@ -58,7 +58,7 @@ ImageDao::ImageDao(QObject *parent) :
   idfw->moveToThread(&m_writeThread);
   m_writeThread.start();
 
-  QVariant version;
+  int version;
 
   EXEC("PRAGMA journal_mode = WAL");
 
@@ -72,10 +72,10 @@ ImageDao::ImageDao(QObject *parent) :
   if(!tableExists("meta")) {
     version = 0;
   } else {
-    version = metaGet(QStringLiteral("version"));
+    version = metaGet(QStringLiteral("version")).toInt();
   }
 
-  qInfo("Database Version: %d", version.toInt());
+  qInfo("Database Version: %d", version);
 
   if(version < 1) {
     qInfo("Upgrading database format to 1");
@@ -288,7 +288,7 @@ QVariantList ImageDao::tagCount(const QList<QObject *> &irefs) {
 }
 
 QList<QObject *> ImageDao::search(const QList<QObject *> &irefs, const QStringList &tags) {
-  QSet<QString> searchTags = QSet<QString>::fromList(tags);
+  QSet<QString> searchTags = QSet<QString>(tags.cbegin(), tags.cend());
 
   QList<QObject *> result;
   for(QObject *irobj : irefs) {
@@ -322,7 +322,8 @@ QList<QObject *> ImageDao::all(bool includeDeleted)
   while(ps.step(SRC_LOCATION)) {
     ImageRef *ir = new ImageRef();
     ir->m_fileId = ps.resultInteger(0);
-    ir->m_tags = QSet<QString>::fromList(ps.resultString(1).split(' ', QString::SkipEmptyParts));
+    auto tagList = ps.resultString(1).split(' ', Qt::SkipEmptyParts);
+    ir->m_tags = QSet<QString>(tagList.cbegin(), tagList.cend());
     ir->m_size = { (int)ps.resultInteger(2), (int)ps.resultInteger(3) };
     ir->m_phash = ps.resultInteger(4);
     ir->m_deleted = ps.resultInteger(5);
@@ -363,7 +364,8 @@ ImageRef *ImageDao::createImageRef(qint64 id)
     return nullptr;
 
   ImageRef *iref = new ImageRef();
-  iref->m_tags = QSet<QString>::fromList(tagsById(id));
+  auto tagsList = tagsById(id);
+  iref->m_tags = QSet<QString>(tagsList.cbegin(), tagsList.cend());
   iref->m_fileId = id;
   iref->m_selected = false;
   iref->m_size = QSize(ps.resultInteger(0), ps.resultInteger(1));

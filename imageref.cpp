@@ -8,14 +8,14 @@ ImageRef::ImageRef(QObject *parent) : QObject(parent) {
 
 QStringList ImageRef::tags() const
 {
-  auto list = m_tags.toList();
+  auto list = QStringList(m_tags.cbegin(), m_tags.cend());
   list.sort();
   return list;
 }
 
 QString ImageRef::overlayString() const
 {
-  return Thumper::textTemplate(m_overlayFormat, [&](const QStringRef &tag){
+  return Thumper::textTemplate(m_overlayFormat, [&](const QString &tag){
     if(tag == QStringLiteral("id")) {
       return QString::number(m_fileId);
     } else if(tag == QStringLiteral("width")) {

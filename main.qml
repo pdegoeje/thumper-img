@@ -15,7 +15,7 @@ ApplicationWindow {
 
   FileUtils {
     id: fileUtils
-    onImageDatabaseSelected: {
+    onImageDatabaseSelected: function(file) {
       console.log("fileselected: ", file)
       launchThumper(file)
     }
@@ -233,7 +233,7 @@ ApplicationWindow {
 
   ImageProcessor {
     id: processor
-    onImageReady: {
+    onImageReady: function(url, fileId) {
       var ref = ImageDao.createImageRef(fileId)
       var fileName = urlFileName(url)
       var regex = /^([a-zA-Z-_ ]+)[0-9]*\.(\w+)$/
@@ -319,12 +319,12 @@ ApplicationWindow {
       }
 
       ToolButton {
-        icon.source: "baseline_folder_open_white_24dp.png"
+        icon.source: "qrc:baseline_folder_open_white_24dp.png"
         onClicked: fileUtils.openImageDatabase()
       }
 
       ToolButton {
-        icon.source: "baseline_save_alt_white_24dp.png"
+        icon.source: "qrc:baseline_save_alt_white_24dp.png"
         onClicked: renderImages()
       }
 
@@ -346,7 +346,7 @@ ApplicationWindow {
         }
       }
       ToolButton {
-        icon.source: "baseline_settings_white_18dp.png"
+        icon.source: "qrc:baseline_settings_white_18dp.png"
         onClicked: {
           settingsLoader.active = true
           settingsLoader.item.open()
@@ -436,7 +436,7 @@ ApplicationWindow {
       onPressedChanged: list.isScrolling = pressed
     }
 
-    Keys.onPressed: {
+    Keys.onPressed: function(event) {
       if(event.key === Qt.Key_A) {
         addTagPopup.open()
         event.accepted = true
@@ -641,7 +641,7 @@ ApplicationWindow {
   TagSelection {
     id: tagSelection
 
-    onEditComplete: {
+    onEditComplete: function(selectedTags) {
       var result = ImageDao.search(viewModelSimpleList, selectedTags)
       if(result.length > 0) {
         viewModelSimpleList.forEach(function(ref) { ref.selected = false })
@@ -748,7 +748,7 @@ ApplicationWindow {
     anchors.fill: parent
     keys: ["text/plain", "text/uri-list"]
 
-    onDropped: {
+    onDropped: function(drop) {
       if(drop.hasText || drop.hasUrls) {
         drop.acceptProposedAction()
 
@@ -763,7 +763,7 @@ ApplicationWindow {
   }
 
   Shortcut {
-    sequence: StandardKey.FullScreen
+    sequence: [ StandardKey.FullScreen ]
     onActivated: {
       window.visibility = (window.visibility == Window.FullScreen) ? Window.Windowed : Window.FullScreen
       console.log("Toggle Fullscreen")

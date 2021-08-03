@@ -20,7 +20,7 @@ public:
   Q_INVOKABLE QString databasePath() const;
   Q_INVOKABLE QString resolveRelativePath(const QString &path) const;
 
-  static QString textTemplate(const QString &blueprint, std::function<QString (const QStringRef &tag)> tagFunc);
+  static QString textTemplate(const QString &blueprint, std::function<QString (const QString &tag)> tagFunc);
 signals:
 
 public slots:

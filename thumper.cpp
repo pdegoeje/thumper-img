@@ -21,7 +21,7 @@ QString Thumper::resolveRelativePath(const QString &path) const {
   return dbRel.path();
 }
 
-QString Thumper::textTemplate(const QString &blueprint, std::function<QString (const QStringRef &)> tagFunc)
+QString Thumper::textTemplate(const QString &blueprint, std::function<QString (const QString &)> tagFunc)
 {
   QString output;
 
@@ -30,19 +30,19 @@ QString Thumper::textTemplate(const QString &blueprint, std::function<QString (c
     int nextIndex = blueprint.indexOf('$', startIndex);
     if(nextIndex != -1) {
       // start of variable
-      output.append(blueprint.midRef(startIndex, nextIndex - startIndex));
+      output.append(blueprint.mid(startIndex, nextIndex - startIndex));
     } else {
-      output.append(blueprint.midRef(startIndex));
+      output.append(blueprint.mid(startIndex));
       break;
     }
 
     startIndex = nextIndex + 1;
     nextIndex = blueprint.indexOf('$', startIndex);
     if(nextIndex != -1) {
-      auto variable = blueprint.midRef(startIndex, nextIndex - startIndex);
+      auto variable = blueprint.mid(startIndex, nextIndex - startIndex);
       output.append(tagFunc(variable));
     } else {
-      output.append(blueprint.midRef(startIndex));
+      output.append(blueprint.mid(startIndex));
       break;
     }
     startIndex = nextIndex + 1;
