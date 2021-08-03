@@ -98,21 +98,22 @@ ApplicationWindow {
   property bool zoomOnHover: true
   property string imageOverlayFormat: "$id$\n$width$x$height$ $size$KB $format$\n$tags$"
 
-  property var viewIdToIndexMap: ({})
   ListModel {
     id: viewModel
   }
   property var viewModelSimpleList: []
   property var allSimpleList: []
 
-  function imageRefById(fileId) {
-    return viewModelSimpleList[viewIdToIndexMap[fileId]]
-  }
-
   property var selectionModel: []
-  property var effectiveSelectionModel: selectionModel.length > 0 ? selectionModel :
-                                                                    viewModelSimpleList.length > 0 ? [ viewModelSimpleList[list.currentIndex] ]
-                                                                                                   : []
+  property var effectiveSelectionModel: {
+    if(selectionModel.length > 0) {
+      return selectionModel
+    } else if(viewModelSimpleList.length > 0) {
+      return [ viewModelSimpleList[list.currentIndex] ]
+    } else {
+      return []
+    }
+  }
 
   property var selectionTagCount: []
   property var viewTagCount: []
@@ -148,7 +149,6 @@ ApplicationWindow {
   }
 
   function viewClear() {
-    viewIdToIndexMap = ({})
     viewModel.clear()
     viewModelSimpleList = []
   }
@@ -157,7 +157,6 @@ ApplicationWindow {
     var modelRefList = []
     for(var i = 0; i < refList.length; i++) {
       var ref = refList[i]
-      viewIdToIndexMap[ref.fileId] = viewModelSimpleList.length
       viewModelSimpleList.push(ref)
       modelRefList.push({ 'ref' : ref })
     }
@@ -645,11 +644,15 @@ ApplicationWindow {
       var result = ImageDao.search(viewModelSimpleList, selectedTags)
       if(result.length > 0) {
         viewModelSimpleList.forEach(function(ref) { ref.selected = false })
-        result.forEach(function(ref) { ref.selected = true })
+
+        var indices = []
+
+        result.forEach(function(ref, index) { ref.selected = true; indices.push(index) })
         rebuildSelectionModel()
 
-        var index = viewIdToIndexMap[result[0].fileId]
-        list.positionViewAtIndex(index, GridView.Center)
+        if(indices.length > 0) {
+          list.positionViewAtIndex(indices[0], GridView.Center)
+        }
       }
     }
   }
