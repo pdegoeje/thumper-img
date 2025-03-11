@@ -1,10 +1,10 @@
-import QtQuick 2.12
-import QtQuick.Window 2.12
-import QtQuick.Controls 2.12
-import QtQuick.Layouts 1.3
-import QtQuick.Controls.Material 2.12
-import QtQml 2.12
-import thumper 1.0
+import QtQuick
+import QtQuick.Window
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Controls.Material
+import QtQml
+import thumper
 
 ApplicationWindow {
   id: window
@@ -311,7 +311,7 @@ ApplicationWindow {
 
         model: allTagModelList
         checkable: true
-        onClicked: {
+        onClicked: (tag, checkedTags) => {
           searchTagsModel = checkedTags
           console.log(checkedTags)
           searchField.text = searchTagsModel.join(' ')
@@ -319,12 +319,12 @@ ApplicationWindow {
       }
 
       ToolButton {
-        icon.source: "qrc:baseline_folder_open_white_24dp.png"
+        icon.source: "baseline_folder_open_white_24dp.png"
         onClicked: fileUtils.openImageDatabase()
       }
 
       ToolButton {
-        icon.source: "qrc:baseline_save_alt_white_24dp.png"
+        icon.source: "baseline_save_alt_white_24dp.png"
         onClicked: renderImages()
       }
 
@@ -346,7 +346,7 @@ ApplicationWindow {
         }
       }
       ToolButton {
-        icon.source: "qrc:baseline_settings_white_18dp.png"
+        icon.source: "baseline_settings_white_18dp.png"
         onClicked: {
           settingsLoader.active = true
           settingsLoader.item.open()
@@ -712,7 +712,7 @@ ApplicationWindow {
 
         Layout.preferredWidth: 250
         model: viewTagModelList
-        onClicked: {
+        onClicked: (tag, checkedTags) => {
           actionAddTag(effectiveSelectionModel, tag)
         }
       }

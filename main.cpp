@@ -1,17 +1,20 @@
-#include "imageprocessor.h"
-#include "thumperimageprovider.h"
+#include "fileutils.h"
 #include "imagedao.h"
+#include "imageprocessor.h"
 #include "sqlite3.h"
 #include "taglist.h"
-#include "fileutils.h"
 #include "thumper.h"
+#include "thumperimageprovider.h"
 
 #include <QApplication>
+#include <QFile>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <QFile>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include <QStandardPaths>
+
+using namespace Qt::StringLiterals;
 
 static void (*msgPrevHandler)(QtMsgType, const QMessageLogContext &, const QString &);
 static QFile msgLogFile;
@@ -48,7 +51,6 @@ int main(int argc, char *argv[])
 {
   Thumper thumper;
 
-  QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication app(argc, argv);
 
   QDir docDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
@@ -83,7 +85,7 @@ int main(int argc, char *argv[])
   QQmlApplicationEngine engine;
   engine.addImageProvider(QLatin1String("thumper"), new ThumperAsyncImageProvider());
   engine.rootContext()->setContextProperty("thumper", &thumper);
-  engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
+  engine.load(QUrl(QStringLiteral("qrc:/qt/qml/thumper/main.qml")));
   if (engine.rootObjects().isEmpty())
     return -1;
 

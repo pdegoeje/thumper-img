@@ -7,7 +7,6 @@
 #include <QQueue>
 #include <QThread>
 #include <QTimer>
-#include <QDrag>
 
 class ImageFetcher : public QObject {
   Q_OBJECT
