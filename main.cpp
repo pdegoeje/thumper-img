@@ -56,6 +56,8 @@ int main(int argc, char *argv[])
   QDir docDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
   QString dbname = docDir.filePath(QStringLiteral("thumper.imgdb"));
 
+  app.setWindowIcon(QIcon(u":/qt/qml/thumper/eye.png"_s));
+
   auto args = app.arguments();
   if(args.length() >= 2) {
     dbname = args.at(1);

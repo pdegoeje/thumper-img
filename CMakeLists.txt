@@ -6,6 +6,10 @@ find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui Widgets QuickControls2)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
+if(WIN32)
+  set(EXTRA_SOURCES thumper.rc)
+endif()
+
 qt_add_executable(thumper
   dct/fast-dct-lee.c
   dct/fast-dct-lee.h
@@ -31,6 +35,7 @@ qt_add_executable(thumper
   thumper.h
   thumperimageprovider.cpp
   thumperimageprovider.h
+  ${EXTRA_SOURCES}
 )
 
 qt_add_qml_module(thumper
@@ -48,8 +53,9 @@ qt_add_qml_module(thumper
     baseline_folder_open_white_24dp.png
     baseline_save_alt_white_24dp.png
     baseline_settings_white_18dp.png
-    selection_box.png
     checkboard.png
+    eye.png
+    selection_box.png
 )
 
 qt_add_resources(thumper "CONTROLS_CONF"
